@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+set -eu
+
+mkdir -p "${HOME}/.vnc"
+
+printf '%s\n' "${VNC_PASSWORD}" | vncpasswd -f > "${HOME}/.vnc/passwd"
+chmod 600 "${HOME}/.vnc/passwd"
+
+cat > "${HOME}/.vnc/xstartup" <<'EOF'
+#!/usr/bin/env sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec startxfce4
+EOF
+chmod +x "${HOME}/.vnc/xstartup"
+
+vncserver "${DISPLAY}" \
+  -geometry "${VNC_GEOMETRY}" \
+  -depth "${VNC_DEPTH}" \
+  -localhost no
+
+exec websockify \
+  --web=/usr/share/novnc \
+  "0.0.0.0:${NOVNC_PORT}" \
+  "localhost:5901"

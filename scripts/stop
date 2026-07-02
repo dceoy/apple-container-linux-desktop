@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ -f .env ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . ./.env
+  set +a
+fi
+
+container stop "${NAME:-linux-desktop}"
