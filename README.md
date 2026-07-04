@@ -130,7 +130,7 @@ echo 'HOST_MOUNTS_FILE=.mounts' >> .env
 Notes:
 
 - Mode defaults to `rw` if omitted; use `:ro` for read-only access.
-- `./linux-desktop up` validates that every host path exists before starting the container, and fails with a clear error if one is missing or a spec is malformed.
+- `./linux-desktop up` always validates every mount spec (well-formed, host path exists) and fails with a clear error if one is missing or malformed -- even if the desktop is already running. If the desktop is already running and the mounts are valid, `up` cannot apply them to the live container; it warns and tells you to run `./linux-desktop restart` (with the same `--volume` flags, if any) to actually mount them.
 - Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.
 - The container-side path is created automatically by the entrypoint on a best-effort basis (`mkdir -p`). If it lives somewhere the non-root container user can't create (e.g. directly under `/`), pre-create it in a custom image or mount under `/home/desktop` instead.
 - `./linux-desktop status` (and `status --json`) shows mounts configured via `HOST_MOUNTS_FILE`, including whether each host path currently exists. Ad hoc `--volume` flags from a past `up` are not persisted or shown by `status`, since they aren't saved anywhere.

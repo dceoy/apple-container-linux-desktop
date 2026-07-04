@@ -316,22 +316,13 @@ up_cmd() {
   verify_platform
   resolve_mount_specs
 
-  if container_running "${NAME}"; then
-    if [ "${force_build}" -eq 1 ]; then
-      log_warn "Container '${NAME}' is already running; rebuilding the image without recreating it. Run './linux-desktop restart --build' to apply the new image."
-      build_cmd
-    else
-      log_info "Container '${NAME}' is already running."
-    fi
-    print_access_info
-    return 0
-  fi
-
   # Validate all mounts and accumulate "--volume host:container:mode"
-  # arguments before touching the container system, image, or any
-  # existing container, so a bad spec fails without side effects. $@ is
-  # empty here (the option loop above consumed everything); reuse it as
-  # the accumulator since POSIX sh has no arrays.
+  # arguments up front, before touching the container system, image, or
+  # any existing container, so a bad spec always fails loudly -- even
+  # when the container is already running and the mounts can't be
+  # applied without a recreate. $@ is empty here (the option loop above
+  # consumed everything); reuse it as the accumulator since POSIX sh has
+  # no arrays.
   mount_targets=""
   if [ -n "${ALL_MOUNT_SPECS}" ]; then
     while IFS= read -r mount_spec || [ -n "${mount_spec}" ]; do
@@ -359,6 +350,20 @@ up_cmd() {
     done <<MOUNT_SPECS_EOF
 ${ALL_MOUNT_SPECS}
 MOUNT_SPECS_EOF
+  fi
+
+  if container_running "${NAME}"; then
+    if [ "${force_build}" -eq 1 ]; then
+      log_warn "Container '${NAME}' is already running; rebuilding the image without recreating it. Run './linux-desktop restart --build' to apply the new image."
+      build_cmd
+    else
+      log_info "Container '${NAME}' is already running."
+    fi
+    if [ -n "${mount_targets}" ]; then
+      log_warn "Requested mount(s) validated but not applied: the running container was not started with them. Run './linux-desktop restart' (with the same --volume flags, if any) to apply them."
+    fi
+    print_access_info
+    return 0
   fi
 
   ensure_container_system
