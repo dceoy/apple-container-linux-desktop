@@ -279,6 +279,41 @@ resolve_mount_specs() {
   fi
 }
 
+# Resolves ALL_MOUNT_SPECS and validates every entry (well-formed, host
+# path exists, container path absolute), exiting with an actionable
+# error on the first problem. Callers that will actually start a
+# container (currently only up_cmd) re-walk ALL_MOUNT_SPECS afterwards
+# to build the "--volume ..." run arguments, since a function's `set --`
+# can't mutate the caller's positional parameters in POSIX sh. This
+# function has no side effects of its own, so it's safe to call as a
+# preflight before a destructive step (stopping/removing a container).
+validate_mount_specs_or_exit() {
+  resolve_mount_specs
+  if [ -z "${ALL_MOUNT_SPECS}" ]; then
+    return 0
+  fi
+  while IFS= read -r mount_spec || [ -n "${mount_spec}" ]; do
+    [ -z "${mount_spec}" ] && continue
+    if ! parse_mount_spec "${mount_spec}"; then
+      log_error "Invalid --volume/HOST_MOUNTS_FILE entry: '${mount_spec}' (expected HOST_PATH:CONTAINER_PATH[:ro|rw])"
+      exit 2
+    fi
+    if [ ! -e "${MOUNT_HOST}" ]; then
+      log_error "Host mount path does not exist: '${MOUNT_HOST}' (from '${mount_spec}')"
+      exit 1
+    fi
+    case "${MOUNT_CONTAINER}" in
+      /*) : ;;
+      *)
+        log_error "Container mount path must be absolute: '${MOUNT_CONTAINER}' (from '${mount_spec}')"
+        exit 2
+        ;;
+    esac
+  done <<MOUNT_SPECS_EOF
+${ALL_MOUNT_SPECS}
+MOUNT_SPECS_EOF
+}
+
 # --- commands -----------------------------------------------------
 
 build_cmd() {
@@ -328,34 +363,23 @@ up_cmd() {
 
   load_env
   verify_platform
-  resolve_mount_specs
+  validate_mount_specs_or_exit
 
-  # Validate all mounts and accumulate "--volume host:container:mode"
-  # arguments up front, before touching the container system, image, or
-  # any existing container, so a bad spec always fails loudly -- even
-  # when the container is already running and the mounts can't be
-  # applied without a recreate. $@ is empty here (the option loop above
-  # consumed everything); reuse it as the accumulator since POSIX sh has
-  # no arrays.
+  # Mounts are already validated above; accumulate "--volume
+  # host:container:mode" arguments up front, before touching the
+  # container system, image, or any existing container, so this fails
+  # loudly instead of after side effects -- even when the container is
+  # already running and the mounts can't be applied without a recreate.
+  # $@ is empty here (the option loop above consumed everything); reuse
+  # it as the accumulator since POSIX sh has no arrays.
   mount_targets=""
   if [ -n "${ALL_MOUNT_SPECS}" ]; then
     while IFS= read -r mount_spec || [ -n "${mount_spec}" ]; do
       [ -z "${mount_spec}" ] && continue
       if ! parse_mount_spec "${mount_spec}"; then
-        log_error "Invalid --volume/HOST_MOUNTS_FILE entry: '${mount_spec}' (expected HOST_PATH:CONTAINER_PATH[:ro|rw])"
-        exit 2
-      fi
-      if [ ! -e "${MOUNT_HOST}" ]; then
-        log_error "Host mount path does not exist: '${MOUNT_HOST}' (from '${mount_spec}')"
+        log_error "Internal error: '${mount_spec}' failed to re-parse after validation."
         exit 1
       fi
-      case "${MOUNT_CONTAINER}" in
-        /*) : ;;
-        *)
-          log_error "Container mount path must be absolute: '${MOUNT_CONTAINER}' (from '${mount_spec}')"
-          exit 2
-          ;;
-      esac
       if [ "${MOUNT_MODE}" = "rw" ]; then
         log_warn "Mounting '${MOUNT_HOST}' as writable (rw) at '${MOUNT_CONTAINER}'. Use ':ro' if write access isn't required."
       fi
@@ -459,6 +483,9 @@ restart_cmd() {
     esac
     shift
   done
+
+  load_env
+  validate_mount_specs_or_exit
 
   down_cmd
   if [ -n "${restart_build_flag}" ]; then
@@ -659,6 +686,9 @@ reset_cmd() {
     esac
     shift
   done
+
+  load_env
+  validate_mount_specs_or_exit
 
   if [ -n "${clean_flag}" ]; then
     clean_cmd "${clean_flag}"
