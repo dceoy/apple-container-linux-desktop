@@ -282,7 +282,21 @@ resolve_mount_specs() {
 # --- commands -----------------------------------------------------
 
 build_cmd() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h | --help)
+        usage
+        return 0
+        ;;
+      *)
+        log_error "build: unknown option '$1'"
+        exit 2
+        ;;
+    esac
+  done
+
   load_env
+  verify_platform
   log_info "Building image '${IMAGE}'..."
   container build --platform linux/arm64 --tag "${IMAGE}" .
 }
@@ -399,6 +413,19 @@ MOUNT_SPECS_EOF
 }
 
 down_cmd() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h | --help)
+        usage
+        return 0
+        ;;
+      *)
+        log_error "down: unknown option '$1'"
+        exit 2
+        ;;
+    esac
+  done
+
   load_env
   if container_running "${NAME}"; then
     log_info "Stopping container '${NAME}'..."
@@ -534,7 +561,23 @@ status_cmd() {
 }
 
 shell_cmd() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h | --help)
+        usage
+        return 0
+        ;;
+      *)
+        log_error "shell: unknown option '$1'"
+        exit 2
+        ;;
+    esac
+  done
+
   load_env
+  verify_platform
+  ensure_container_system
+
   if container_running "${NAME}"; then
     log_info "Opening a shell in the running container '${NAME}'..."
     exec container exec --interactive --tty "${NAME}" /bin/bash
@@ -631,6 +674,19 @@ reset_cmd() {
 }
 
 doctor_cmd() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h | --help)
+        usage
+        return 0
+        ;;
+      *)
+        log_error "doctor: unknown option '$1'"
+        exit 2
+        ;;
+    esac
+  done
+
   load_env
   fail_count=0
   warn_count=0
