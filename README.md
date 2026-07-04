@@ -53,7 +53,7 @@ Run `./linux-desktop up` again at any time: it is safe to re-run, will not creat
 
 | Command   | Description                                                        |
 | --------- | ------------------------------------------------------------------- |
-| `up`      | Start the desktop. Idempotent; detached by default. `--build`/`--rebuild` forces an image rebuild first. |
+| `up`      | Start the desktop. Idempotent; detached by default. `--build`/`--rebuild` forces an image rebuild first. If the desktop is already running, this only rebuilds the image (it never recreates a running container) -- use `restart --build` to rebuild and recreate. |
 | `down`    | Stop the running desktop container. Safe to run if it's already stopped or doesn't exist. |
 | `restart` | Equivalent to `down` followed by `up`. Accepts `up`'s options.      |
 | `status`  | Print whether the desktop is running and, if so, the noVNC URL. Exits non-zero when not running. |

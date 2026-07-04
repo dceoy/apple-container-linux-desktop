@@ -18,7 +18,10 @@ Usage: linux-desktop <command> [options]
 
 Commands:
   up          Start the desktop (idempotent, detached by default)
-                --build, --rebuild   Force a rebuild of the image first
+                --build, --rebuild   Rebuild the image first. If the
+                                     desktop is already running, only the
+                                     image is rebuilt (use 'restart
+                                     --build' to also recreate it).
   down        Stop the running desktop container
   restart     Stop and start the desktop (accepts 'up' options)
   status      Show whether the desktop is running and how to reach it
@@ -227,7 +230,12 @@ up_cmd() {
   verify_platform
 
   if container_running "${NAME}"; then
-    log_info "Container '${NAME}' is already running."
+    if [ "${force_build}" -eq 1 ]; then
+      log_warn "Container '${NAME}' is already running; rebuilding the image without recreating it. Run './linux-desktop restart --build' to apply the new image."
+      build_cmd
+    else
+      log_info "Container '${NAME}' is already running."
+    fi
     print_access_info
     return 0
   fi
@@ -273,8 +281,28 @@ down_cmd() {
 }
 
 restart_cmd() {
+  restart_build_flag=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --build | --rebuild) restart_build_flag="$1" ;;
+      -h | --help)
+        usage
+        return 0
+        ;;
+      *)
+        log_error "restart: unknown option '$1'"
+        exit 2
+        ;;
+    esac
+    shift
+  done
+
   down_cmd
-  up_cmd "$@"
+  if [ -n "${restart_build_flag}" ]; then
+    up_cmd "${restart_build_flag}"
+  else
+    up_cmd
+  fi
 }
 
 status_cmd() {
