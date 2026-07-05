@@ -18,7 +18,6 @@ jobs:
     with:
       search-path: .
       file-names: |
-        linux-desktop
         scripts/*
   dependabot-auto-merge:
     if: >
