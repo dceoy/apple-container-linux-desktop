@@ -47,7 +47,7 @@ ENV DISPLAY=:1 \
     VNC_PASSWORD=apple \
     NOVNC_PORT=6080
 
-COPY --chmod=0755 scripts/entrypoint /usr/local/bin/entrypoint
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
