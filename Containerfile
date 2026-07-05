@@ -13,7 +13,6 @@ RUN apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         dbus-x11 \
-        net-tools \
         novnc \
         procps \
         tigervnc-standalone-server \
