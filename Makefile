@@ -16,6 +16,7 @@ HOST_MOUNTS_FILE ?=
 MIN_MACOS_MAJOR ?= 26
 
 export IMAGE NAME HOST_IP PORT CPUS MEMORY VNC_GEOMETRY VNC_DEPTH VNC_PASSWORD HOST_MOUNTS_FILE MIN_MACOS_MAJOR
+export CLI_VOLUMES BUILD REMOVE_IMAGE JSON SKIP_MOUNT_VALIDATION
 
 .PHONY: help check validate-mounts doctor build up rebuild down restart restart-rebuild status status-json clean clean-image reset reset-image reset-rebuild shell
 
