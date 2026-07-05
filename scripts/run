@@ -1,10 +1,8 @@
 #!/usr/bin/env sh
-# NOTE: this now delegates to `linux-desktop up`, which starts the desktop
-# detached and returns immediately instead of blocking in the foreground.
-# Use `./linux-desktop shell`, `./linux-desktop status`, or `./scripts/stop`
-# to interact with it afterwards.
+# Compatibility helper for the historical scripts/run entrypoint.
+# Prefer `make up` for new usage.
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 
-exec "${SCRIPT_DIR}/linux-desktop" up "$@"
+exec make -C "${SCRIPT_DIR}" up "$@"
