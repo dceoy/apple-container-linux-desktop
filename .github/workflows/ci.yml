@@ -19,6 +19,7 @@ jobs:
       search-path: .
       file-names: |
         entrypoint.sh
+        validate-mounts.sh
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
