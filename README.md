@@ -25,7 +25,7 @@ This repository intentionally keeps the implementation small:
 - one `Containerfile`
 - one container runtime entrypoint (`scripts/entrypoint`)
 - one `Makefile` that wraps Apple `container` operations
-- no host-side shell wrapper scripts, no GUI wrapper, no Docker Compose compatibility layer, no Swift application
+- no host-side shell wrapper scripts, GUI wrapper, Docker Compose compatibility layer, Swift application, or host mount manager
 
 ## Quick start
 
@@ -33,7 +33,7 @@ This repository intentionally keeps the implementation small:
 make up
 ```
 
-This single, safe-to-rerun command:
+This safe-to-rerun command:
 
 - loads configuration from `.env` when present, otherwise using Makefile defaults
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
@@ -52,24 +52,18 @@ Run `make up` again at any time: it is safe to re-run and will not create a seco
 make <target> [VARIABLE=value ...]
 ```
 
-| Target            | Description                                                        |
-| ----------------- | ------------------------------------------------------------------- |
-| `up`              | Start the desktop. Safe to run repeatedly.                          |
-| `rebuild`         | Rebuild the image, then run `up`. If the desktop is already running, this rebuilds the image without recreating the running container. |
-| `down`            | Stop the running desktop container. Safe to run if it's already stopped or doesn't exist. |
-| `restart`         | Equivalent to `down` followed by `up`.                              |
-| `restart-rebuild` | Stop the desktop, rebuild the image, then start it.                 |
-| `status`          | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running. |
-| `status-json`     | Print compact machine-readable JSON status.                         |
-| `shell`           | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
-| `build`           | Build the container image.                                          |
-| `clean`           | Stop and remove the container.                                      |
-| `clean-image`     | Stop and remove the container, then remove the built image.          |
-| `reset`           | `clean` followed by `up`.                                           |
-| `reset-image`     | `clean-image` followed by `up`.                                     |
-| `reset-rebuild`   | `clean` followed by a forced rebuild and `up`.                      |
-| `doctor`          | Run basic diagnostics for architecture, macOS version, `container` CLI, container system status, and VNC password. |
-| `help`            | Show usage.                                                         |
+| Target        | Description                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| `up`          | Start the desktop. Safe to run repeatedly.                         |
+| `down`        | Stop the running desktop container. Safe if it is already stopped. |
+| `restart`     | Equivalent to `down` followed by `up`.                             |
+| `status`      | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running. |
+| `shell`       | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
+| `build`       | Build the container image.                                         |
+| `clean`       | Stop and remove the container.                                     |
+| `clean-image` | Stop and remove the container, then remove the built image.         |
+| `doctor`      | Run basic diagnostics for architecture, macOS version, `container` CLI, container system status, and VNC password. |
+| `help`        | Show usage.                                                        |
 
 If something isn't working, start with:
 
@@ -87,63 +81,23 @@ cp .env.example .env
 
 `.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
 
-| Variable       | Default                | Description                  |
-| -------------- | ----------------------- | ----------------------------- |
-| `IMAGE`        | `linux-desktop:latest`  | Local OCI image name          |
-| `NAME`         | `linux-desktop`         | Container name                |
-| `HOST_IP`      | `127.0.0.1`             | Host bind address             |
-| `PORT`         | `6080`                  | noVNC host port                |
-| `CPUS`         | `4`                     | Container CPU allocation       |
-| `MEMORY`       | `4G`                    | Container memory allocation    |
-| `VNC_GEOMETRY` | `1440x900`              | Desktop resolution              |
-| `VNC_DEPTH`    | `24`                    | VNC color depth                 |
-| `VNC_PASSWORD` | `apple`                 | VNC password                    |
-| `HOST_MOUNTS_FILE` | *(unset)*           | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
+| Variable       | Default                | Description                |
+| -------------- | ---------------------- | -------------------------- |
+| `IMAGE`        | `linux-desktop:latest` | Local OCI image name       |
+| `NAME`         | `linux-desktop`        | Container name             |
+| `HOST_IP`      | `127.0.0.1`            | Host bind address          |
+| `PORT`         | `6080`                 | noVNC host port            |
+| `CPUS`         | `4`                    | Container CPU allocation   |
+| `MEMORY`       | `4G`                   | Container memory allocation |
+| `VNC_GEOMETRY` | `1440x900`             | Desktop resolution         |
+| `VNC_DEPTH`    | `24`                   | VNC color depth            |
+| `VNC_PASSWORD` | `apple`                | VNC password               |
 
 Make variables can also be passed inline for one-off overrides:
 
 ```sh
 PORT=6081 MEMORY=8G make up
 ```
-
-## Host mounts
-
-No host paths are mounted by default. Mounting is entirely opt-in, two ways:
-
-**Ad hoc, one-off mount** with `CLI_VOLUMES`:
-
-```sh
-CLI_VOLUMES="$HOME/Desktop:/home/desktop/Desktop" make up
-CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make restart
-```
-
-For multiple mounts, prefer a mounts file.
-
-**Persistent mounts** applied on every `up`, via a mounts file:
-
-```sh
-cp .mounts.example .mounts
-```
-
-Edit `.mounts` -- one `HOST_PATH:CONTAINER_PATH[:ro|rw]` entry per line:
-
-```text
-/Users/you/Desktop:/home/desktop/Desktop:rw
-/Users/you/Downloads:/home/desktop/Downloads:ro
-```
-
-Then point `.env` at it:
-
-```sh
-echo 'HOST_MOUNTS_FILE=.mounts' >> .env
-```
-
-Notes:
-
-- Mode defaults to `rw` if omitted; use `:ro` for read-only access.
-- `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make restart` to recreate it.
-- Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.
-- The container-side path is created automatically by the entrypoint on a best-effort basis (`mkdir -p`). If it lives somewhere the non-root container user can't create (e.g. directly under `/`), pre-create it in a custom image or mount under `/home/desktop` instead.
 
 ## Shell access
 
@@ -153,13 +107,12 @@ make shell
 
 If the desktop container is already running, this opens a shell inside it. Otherwise it starts a temporary, disposable container from the built image.
 
-## Cleanup and reset
+## Cleanup
 
 ```sh
 make down          # stop the desktop
 make clean         # stop and remove the container
 make clean-image   # also remove the built image
-make reset         # clean, then start again
 ```
 
 `down` and `clean` never fail just because the container is already stopped or doesn't exist. Image deletion is opt-in through `make clean-image`, so a plain `make clean` never discards the built image.
@@ -169,14 +122,7 @@ make reset         # clean, then start again
 - The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
 - Always set a non-default `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. `make doctor` warns if the password is still the default.
 - Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
-- Host mounts give the desktop direct access to the mounted host path. Only mount what's needed, prefer `:ro` over `:rw`, and remember that anyone who can reach the desktop (via VNC or `make shell`) can read -- and, for `:rw` mounts, write -- those host files.
-
-## Compatibility notes
-
-The historical top-level `linux-desktop` wrapper and host-side helper scripts have been removed so the repository has a single host command surface: `make`.
-
-Only `scripts/entrypoint` remains under `scripts/`, because it is copied into the container image and runs inside the container.
 
 ## Scope
 
-This project is a minimal desktop launcher for local development and experimentation. GPU acceleration, Wayland compositors, persistent desktop state, and multi-container orchestration are intentionally out of scope for the initial implementation.
+This project is a minimal desktop launcher for local development and experimentation. GPU acceleration, Wayland compositors, persistent desktop state, host mount presets, and multi-container orchestration are intentionally out of scope.
