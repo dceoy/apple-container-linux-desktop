@@ -1,9 +1,0 @@
-# One "HOST_PATH:CONTAINER_PATH[:ro|rw]" mount per line.
-# Copy to .mounts (or the path set by HOST_MOUNTS_FILE in .env) and edit.
-# Blank lines and lines starting with '#' are ignored.
-#
-# Mode defaults to rw if omitted. Prefer ':ro' unless write access is
-# actually needed -- ./linux-desktop warns on every writable mount.
-
-# /Users/you/Desktop:/home/desktop/Desktop:rw
-# /Users/you/Downloads:/home/desktop/Downloads:ro
