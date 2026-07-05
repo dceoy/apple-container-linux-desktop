@@ -172,7 +172,6 @@ down:
 	fi
 
 restart: check
-	@$(MAKE) --no-print-directory _validate-mounts
 	@$(MAKE) --no-print-directory down
 	@$(MAKE) --no-print-directory up
 
