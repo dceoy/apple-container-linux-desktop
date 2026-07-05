@@ -1,0 +1,5 @@
+# Keep the build context limited to files required by the Containerfile.
+*
+!Containerfile
+!entrypoint.sh
+!.dockerignore
