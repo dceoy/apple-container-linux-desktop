@@ -1,4 +1,6 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 LABEL org.opencontainers.image.title="Apple Container Linux Desktop" \
       org.opencontainers.image.description="Minimal XFCE desktop for Apple Container with TigerVNC and noVNC" \
@@ -16,8 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     VNC_PASSWORD=apple \
     NOVNC_PORT=6080
 
-RUN set -eux; \
-    apt-get update; \
+RUN apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         dbus-x11 \
@@ -32,8 +33,7 @@ RUN set -eux; \
         xfce4-terminal; \
     rm -rf /var/lib/apt/lists/*
 
-RUN set -eux; \
-    user_home="/home/${USERNAME}"; \
+RUN user_home="/home/${USERNAME}"; \
     if ! getent group "${USER_GID}" >/dev/null; then \
         groupadd --gid "${USER_GID}" "${USERNAME}"; \
     fi; \
