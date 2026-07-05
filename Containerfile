@@ -7,16 +7,7 @@ LABEL org.opencontainers.image.title="Apple Container Linux Desktop" \
       org.opencontainers.image.source="https://github.com/dceoy/apple-container-linux-desktop" \
       org.opencontainers.image.licenses="MIT"
 
-ARG USERNAME=desktop
-ARG USER_UID=1000
-ARG USER_GID=1000
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    DISPLAY=:1 \
-    VNC_GEOMETRY=1440x900 \
-    VNC_DEPTH=24 \
-    VNC_PASSWORD=apple \
-    NOVNC_PORT=6080
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -33,6 +24,10 @@ RUN apt-get update; \
         xfce4-terminal; \
     rm -rf /var/lib/apt/lists/*
 
+ARG USERNAME=desktop
+ARG USER_UID=1000
+ARG USER_GID=1000
+
 RUN user_home="/home/${USERNAME}"; \
     if ! getent group "${USER_GID}" >/dev/null; then \
         groupadd --gid "${USER_GID}" "${USERNAME}"; \
@@ -46,6 +41,12 @@ RUN user_home="/home/${USERNAME}"; \
     else \
         useradd --uid "${USER_UID}" --gid "${USER_GID}" --create-home --shell /bin/bash "${USERNAME}"; \
     fi
+
+ENV DISPLAY=:1 \
+    VNC_GEOMETRY=1440x900 \
+    VNC_DEPTH=24 \
+    VNC_PASSWORD=apple \
+    NOVNC_PORT=6080
 
 COPY --chmod=0755 scripts/entrypoint /usr/local/bin/entrypoint
 
