@@ -23,9 +23,9 @@ macOS browser
 This repository intentionally keeps the implementation small:
 
 - one `Containerfile`
-- one runtime entrypoint
+- one container runtime entrypoint (`scripts/entrypoint`)
 - one `Makefile` that wraps Apple `container` operations
-- no custom top-level CLI, no GUI wrapper, no Docker Compose compatibility layer, no Swift application
+- no host-side shell wrapper scripts, no GUI wrapper, no Docker Compose compatibility layer, no Swift application
 
 ## Quick start
 
@@ -173,9 +173,9 @@ make reset         # clean, then start again
 
 ## Compatibility notes
 
-`scripts/build`, `scripts/run`, `scripts/stop`, and `scripts/shell` still exist and now delegate directly to `make build`/`up`/`down`/`shell` respectively.
+The historical top-level `linux-desktop` wrapper and host-side helper scripts have been removed so the repository has a single host command surface: `make`.
 
-The historical top-level `linux-desktop` wrapper has been removed so the repository has a single command surface: `make`.
+Only `scripts/entrypoint` remains under `scripts/`, because it is copied into the container image and runs inside the container.
 
 ## Scope
 
