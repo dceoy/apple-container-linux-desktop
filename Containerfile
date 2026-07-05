@@ -13,7 +13,6 @@ RUN apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         dbus-x11 \
-        net-tools \
         novnc \
         procps \
         tigervnc-standalone-server \
@@ -48,7 +47,7 @@ ENV DISPLAY=:1 \
     VNC_PASSWORD=apple \
     NOVNC_PORT=6080
 
-COPY --chmod=0755 scripts/entrypoint /usr/local/bin/entrypoint
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}

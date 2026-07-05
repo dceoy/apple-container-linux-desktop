@@ -3,7 +3,7 @@
 # Blank lines and lines starting with '#' are ignored.
 #
 # Mode defaults to rw if omitted. Prefer ':ro' unless write access is
-# actually needed -- ./linux-desktop warns on every writable mount.
+# actually needed -- make up warns on every writable mount.
 
 # /Users/you/Desktop:/home/desktop/Desktop:rw
 # /Users/you/Downloads:/home/desktop/Downloads:ro
