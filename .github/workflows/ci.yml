@@ -18,7 +18,7 @@ jobs:
     with:
       search-path: .
       file-names: |
-        scripts/*
+        entrypoint.sh
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
