@@ -112,29 +112,19 @@ CLI_VOLUMES="$HOME/Desktop:/home/desktop/Desktop" make up
 CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make restart
 ```
 
-For multiple mounts, prefer a mounts file.
-
-**Persistent mounts** applied on every `up`, via a mounts file:
+For multiple persistent mounts, create a local mounts file and point `.env` at it. The expected format is documented in `.env.example`.
 
 ```sh
-cp .mounts.example .mounts
-```
-
-Edit `.mounts` -- one `HOST_PATH:CONTAINER_PATH[:ro|rw]` entry per line:
-
-```text
+cat >.mounts <<'EOF'
 /Users/you/Desktop:/home/desktop/Desktop:rw
 /Users/you/Downloads:/home/desktop/Downloads:ro
-```
-
-Then point `.env` at it:
-
-```sh
-echo 'HOST_MOUNTS_FILE=.mounts' >> .env
+EOF
+echo 'HOST_MOUNTS_FILE=.mounts' >>.env
 ```
 
 Notes:
 
+- Blank lines and lines starting with `#` in the mounts file are ignored.
 - Mode defaults to `rw` if omitted; use `:ro` for read-only access.
 - `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make restart` to recreate it.
 - Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.

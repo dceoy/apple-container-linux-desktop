@@ -18,7 +18,7 @@ MIN_MACOS_MAJOR ?= 26
 export IMAGE NAME HOST_IP PORT CPUS MEMORY VNC_GEOMETRY VNC_DEPTH VNC_PASSWORD HOST_MOUNTS_FILE MIN_MACOS_MAJOR
 export CLI_VOLUMES
 
-.PHONY: help check doctor build up down restart status clean clean-image shell
+.PHONY: help check _validate-mounts doctor build up down restart status clean clean-image shell
 
 help:
 	@printf '%s\n' \
@@ -59,6 +59,34 @@ check:
 		echo "WARNING: sw_vers is unavailable; continuing without macOS version validation." >&2; \
 	fi; \
 	command -v container >/dev/null 2>&1 || { echo "ERROR: Apple 'container' CLI was not found in PATH." >&2; exit 1; }
+
+_validate-mounts:
+	@set -euo pipefail; \
+	specs_file=$$(mktemp "$${TMPDIR:-/tmp}/linux-desktop-mounts.XXXXXX"); \
+	trap 'rm -f "$$specs_file"' EXIT HUP INT TERM; \
+	if [[ -n "$${CLI_VOLUMES:-}" ]]; then printf '%s\n' "$$CLI_VOLUMES" >>"$$specs_file"; fi; \
+	if [[ -n "$${HOST_MOUNTS_FILE:-}" ]]; then \
+		if [[ ! -f "$$HOST_MOUNTS_FILE" ]]; then echo "ERROR: HOST_MOUNTS_FILE is set to '$$HOST_MOUNTS_FILE' but that file does not exist." >&2; exit 1; fi; \
+		while IFS= read -r line || [[ -n "$$line" ]]; do \
+			case "$$line" in ''|\#*) continue ;; esac; \
+			printf '%s\n' "$$line" >>"$$specs_file"; \
+		done < "$$HOST_MOUNTS_FILE"; \
+	fi; \
+	while IFS= read -r spec || [[ -n "$$spec" ]]; do \
+		[[ -z "$$spec" ]] && continue; \
+		rest="$${spec#*:}"; \
+		if [[ "$$rest" == "$$spec" ]]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
+		host="$${spec%%:*}"; \
+		case "$$rest" in \
+			*:ro) mode=ro; target="$${rest%:ro}" ;; \
+			*:rw) mode=rw; target="$${rest%:rw}" ;; \
+			*) mode=rw; target="$$rest" ;; \
+		esac; \
+		[[ -n "$$host" && -n "$$target" ]] || { echo "ERROR: invalid mount '$$spec'." >&2; exit 2; }; \
+		[[ -e "$$host" ]] || { echo "ERROR: host mount path does not exist: '$$host'." >&2; exit 1; }; \
+		case "$$target" in /*) : ;; *) echo "ERROR: container mount path must be absolute: '$$target'." >&2; exit 2 ;; esac; \
+		if [[ "$$mode" == rw ]]; then echo "WARNING: mounting '$$host' as writable at '$$target'. Prefer ':ro' unless write access is required." >&2; fi; \
+	done < "$$specs_file"
 
 doctor:
 	@set -euo pipefail; \
@@ -144,7 +172,7 @@ down:
 	fi
 
 restart: check
-	@./validate-mounts.sh
+	@$(MAKE) --no-print-directory _validate-mounts
 	@$(MAKE) --no-print-directory down
 	@$(MAKE) --no-print-directory up
 
