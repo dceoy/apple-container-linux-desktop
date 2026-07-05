@@ -74,15 +74,11 @@ _validate-mounts:
 	fi; \
 	while IFS= read -r spec || [[ -n "$$spec" ]]; do \
 		[[ -z "$$spec" ]] && continue; \
-		rest="$${spec#*:}"; \
-		if [[ "$$rest" == "$$spec" ]]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
-		host="$${spec%%:*}"; \
-		case "$$rest" in \
-			*:ro) mode=ro; target="$${rest%:ro}" ;; \
-			*:rw) mode=rw; target="$${rest%:rw}" ;; \
-			*) mode=rw; target="$$rest" ;; \
-		esac; \
+		IFS=: read -r host target mode extra <<<"$$spec"; \
+		if [[ -n "$${extra:-}" || "$$spec" == *: ]]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
 		[[ -n "$$host" && -n "$$target" ]] || { echo "ERROR: invalid mount '$$spec'." >&2; exit 2; }; \
+		mode="$${mode:-rw}"; \
+		case "$$mode" in ro|rw) : ;; *) echo "ERROR: invalid mount mode '$$mode' in '$$spec' (expected 'ro' or 'rw')." >&2; exit 2 ;; esac; \
 		[[ -e "$$host" ]] || { echo "ERROR: host mount path does not exist: '$$host'." >&2; exit 1; }; \
 		case "$$target" in /*) : ;; *) echo "ERROR: container mount path must be absolute: '$$target'." >&2; exit 2 ;; esac; \
 		if [[ "$$mode" == rw ]]; then echo "WARNING: mounting '$$host' as writable at '$$target'. Prefer ':ro' unless write access is required." >&2; fi; \
@@ -99,7 +95,7 @@ build: check
 	@set -euo pipefail; \
 	container build --platform linux/arm64 --tag "$$IMAGE" .
 
-up: check
+up: check _validate-mounts
 	@set -euo pipefail; \
 	if [[ -n "$${CLI_VOLUMES:-}" || -n "$${HOST_MOUNTS_FILE:-}" ]]; then has_mounts=1; else has_mounts=0; fi; \
 	container system status >/dev/null 2>&1 || container system start; \
@@ -131,15 +127,11 @@ up: check
 	volumes=(); \
 	while IFS= read -r spec || [[ -n "$$spec" ]]; do \
 		[[ -z "$$spec" ]] && continue; \
-		rest="$${spec#*:}"; \
-		if [[ "$$rest" == "$$spec" ]]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
-		host="$${spec%%:*}"; \
-		case "$$rest" in \
-			*:ro) mode=ro; target="$${rest%:ro}" ;; \
-			*:rw) mode=rw; target="$${rest%:rw}" ;; \
-			*) mode=rw; target="$$rest" ;; \
-		esac; \
+		IFS=: read -r host target mode extra <<<"$$spec"; \
+		if [[ -n "$${extra:-}" || "$$spec" == *: ]]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
 		[[ -n "$$host" && -n "$$target" ]] || { echo "ERROR: invalid mount '$$spec'." >&2; exit 2; }; \
+		mode="$${mode:-rw}"; \
+		case "$$mode" in ro|rw) : ;; *) echo "ERROR: invalid mount mode '$$mode' in '$$spec' (expected 'ro' or 'rw')." >&2; exit 2 ;; esac; \
 		[[ -e "$$host" ]] || { echo "ERROR: host mount path does not exist: '$$host'." >&2; exit 1; }; \
 		case "$$target" in /*) : ;; *) echo "ERROR: container mount path must be absolute: '$$target'." >&2; exit 2 ;; esac; \
 		if [[ "$$mode" == rw ]]; then echo "WARNING: mounting '$$host' as writable at '$$target'. Prefer ':ro' unless write access is required." >&2; fi; \
