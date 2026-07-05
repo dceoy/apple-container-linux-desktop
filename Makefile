@@ -12,40 +12,30 @@ MEMORY ?= 4G
 VNC_GEOMETRY ?= 1440x900
 VNC_DEPTH ?= 24
 VNC_PASSWORD ?= apple
-HOST_MOUNTS_FILE ?=
 MIN_MACOS_MAJOR ?= 26
 
-export IMAGE NAME HOST_IP PORT CPUS MEMORY VNC_GEOMETRY VNC_DEPTH VNC_PASSWORD HOST_MOUNTS_FILE MIN_MACOS_MAJOR
-export CLI_VOLUMES BUILD REMOVE_IMAGE JSON SKIP_MOUNT_VALIDATION
+export IMAGE NAME HOST_IP PORT CPUS MEMORY VNC_GEOMETRY VNC_DEPTH VNC_PASSWORD MIN_MACOS_MAJOR
 
-.PHONY: help check validate-mounts doctor build up rebuild down restart restart-rebuild status status-json clean clean-image reset reset-image reset-rebuild shell
+.PHONY: help check doctor build up down restart status clean clean-image shell
 
 help:
 	@printf '%s\n' \
 		'Usage: make <target> [VARIABLE=value ...]' \
 		'' \
 		'Targets:' \
-		'  up                Start the desktop; safe to run repeatedly' \
-		'  rebuild           Rebuild the image, then run up' \
-		'  down              Stop the running desktop container' \
-		'  restart           Stop and start the desktop' \
-		'  restart-rebuild   Stop, rebuild, and start the desktop' \
-		'  status            Show whether the desktop is running' \
-		'  status-json       Print a compact JSON status' \
-		'  shell             Open a shell in the running container, or a temporary one' \
-		'  build             Build the container image' \
-		'  clean             Stop and remove the container' \
-		'  clean-image       Stop and remove the container and built image' \
-		'  reset             Clean up, then start again' \
-		'  reset-image       Clean up including the image, then start again' \
-		'  reset-rebuild     Clean up, rebuild, then start again' \
-		'  doctor            Run basic diagnostics' \
-		'  help              Show this help message' \
+		'  up           Start the desktop; safe to run repeatedly' \
+		'  down         Stop the running desktop container' \
+		'  restart      Stop and start the desktop' \
+		'  status       Show whether the desktop is running' \
+		'  shell        Open a shell in the running container, or a temporary one' \
+		'  build        Build the container image' \
+		'  clean        Stop and remove the container' \
+		'  clean-image  Stop and remove the container and built image' \
+		'  doctor       Run basic diagnostics' \
+		'  help         Show this help message' \
 		'' \
 		'Common variables:' \
 		'  IMAGE, NAME, HOST_IP, PORT, CPUS, MEMORY, VNC_GEOMETRY, VNC_DEPTH, VNC_PASSWORD' \
-		'  HOST_MOUNTS_FILE=.mounts' \
-		'  CLI_VOLUMES="HOST:CONTAINER[:ro|rw]"' \
 		'' \
 		'Configuration is read from .env when present, with Makefile defaults otherwise.'
 
@@ -66,34 +56,6 @@ check:
 	fi; \
 	command -v container >/dev/null 2>&1 || { echo "ERROR: Apple 'container' CLI was not found in PATH." >&2; exit 1; }
 
-validate-mounts:
-	@set -eu; \
-	specs_file=$$(mktemp "$${TMPDIR:-/tmp}/linux-desktop-mounts.XXXXXX"); \
-	trap 'rm -f "$$specs_file"' EXIT HUP INT TERM; \
-	if [ -n "$${CLI_VOLUMES:-}" ]; then printf '%s\n' "$$CLI_VOLUMES" >>"$$specs_file"; fi; \
-	if [ -n "$${HOST_MOUNTS_FILE:-}" ]; then \
-		if [ ! -f "$$HOST_MOUNTS_FILE" ]; then echo "ERROR: HOST_MOUNTS_FILE is set to '$$HOST_MOUNTS_FILE' but that file does not exist." >&2; exit 1; fi; \
-		while IFS= read -r line || [ -n "$$line" ]; do \
-			case "$$line" in ''|\#*) continue ;; esac; \
-			printf '%s\n' "$$line" >>"$$specs_file"; \
-		done < "$$HOST_MOUNTS_FILE"; \
-	fi; \
-	while IFS= read -r spec || [ -n "$$spec" ]; do \
-		[ -z "$$spec" ] && continue; \
-		rest=$${spec#*:}; \
-		if [ "$$rest" = "$$spec" ]; then echo "ERROR: invalid mount '$$spec' (expected HOST:CONTAINER[:ro|rw])." >&2; exit 2; fi; \
-		host=$${spec%%:*}; \
-		case "$$rest" in \
-			*:ro) mode=ro; target=$${rest%:ro} ;; \
-			*:rw) mode=rw; target=$${rest%:rw} ;; \
-			*) mode=rw; target=$$rest ;; \
-		esac; \
-		[ -n "$$host" ] && [ -n "$$target" ] || { echo "ERROR: invalid mount '$$spec'." >&2; exit 2; }; \
-		[ -e "$$host" ] || { echo "ERROR: host mount path does not exist: '$$host'." >&2; exit 1; }; \
-		case "$$target" in /*) : ;; *) echo "ERROR: container mount path must be absolute: '$$target'." >&2; exit 2 ;; esac; \
-		if [ "$$mode" = rw ]; then echo "WARNING: mounting '$$host' as writable at '$$target'. Prefer ':ro' unless write access is required." >&2; fi; \
-	done < "$$specs_file"
-
 doctor:
 	@set -eu; \
 	echo "== linux-desktop doctor =="; \
@@ -106,51 +68,20 @@ build: check
 
 up: check
 	@set -eu; \
-	if [ "$${SKIP_MOUNT_VALIDATION:-0}" != 1 ]; then $(MAKE) --no-print-directory validate-mounts; fi; \
 	container system status >/dev/null 2>&1 || container system start; \
 	if container list --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then \
-		if [ "$${BUILD:-0}" = 1 ]; then \
-			echo "Container '$$NAME' is already running; rebuilding the image without recreating it."; \
-			$(MAKE) --no-print-directory build; \
-		fi; \
 		echo "Container '$$NAME' is already running."; \
-		if [ -n "$${CLI_VOLUMES:-}" ] || [ -n "$${HOST_MOUNTS_FILE:-}" ]; then \
-			echo "WARNING: requested mounts are not applied to an already-running container; run 'make restart' to recreate it." >&2; \
-		fi; \
 		if [ "$$HOST_IP" = 0.0.0.0 ]; then host=localhost; else host="$$HOST_IP"; fi; \
 		echo "noVNC:  http://$$host:$$PORT/vnc.html"; \
 		exit 0; \
 	fi; \
-	if [ "$${BUILD:-0}" = 1 ] || ! container image list --quiet 2>/dev/null | grep -Fx "$$IMAGE" >/dev/null; then \
+	if ! container image list --quiet 2>/dev/null | grep -Fx "$$IMAGE" >/dev/null; then \
 		$(MAKE) --no-print-directory build; \
 	fi; \
 	if container list --all --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then \
 		echo "Removing stale container '$$NAME'..."; \
 		container delete "$$NAME" >/dev/null 2>&1 || true; \
 	fi; \
-	specs_file=$$(mktemp "$${TMPDIR:-/tmp}/linux-desktop-mounts.XXXXXX"); \
-	trap 'rm -f "$$specs_file"' EXIT HUP INT TERM; \
-	if [ -n "$${CLI_VOLUMES:-}" ]; then printf '%s\n' "$$CLI_VOLUMES" >>"$$specs_file"; fi; \
-	if [ -n "$${HOST_MOUNTS_FILE:-}" ]; then \
-		while IFS= read -r line || [ -n "$$line" ]; do \
-			case "$$line" in ''|\#*) continue ;; esac; \
-			printf '%s\n' "$$line" >>"$$specs_file"; \
-		done < "$$HOST_MOUNTS_FILE"; \
-	fi; \
-	mount_targets=; \
-	set --; \
-	while IFS= read -r spec || [ -n "$$spec" ]; do \
-		[ -z "$$spec" ] && continue; \
-		rest=$${spec#*:}; \
-		host=$${spec%%:*}; \
-		case "$$rest" in \
-			*:ro) mode=ro; target=$${rest%:ro} ;; \
-			*:rw) mode=rw; target=$${rest%:rw} ;; \
-			*) mode=rw; target=$$rest ;; \
-		esac; \
-		set -- "$$@" --volume "$$host:$$target:$$mode"; \
-		mount_targets=$${mount_targets:+$$mount_targets:}$$target; \
-	done < "$$specs_file"; \
 	echo "Starting container '$$NAME'..."; \
 	container run --detach --rm \
 		--name "$$NAME" \
@@ -160,15 +91,10 @@ up: check
 		--env "VNC_GEOMETRY=$$VNC_GEOMETRY" \
 		--env "VNC_DEPTH=$$VNC_DEPTH" \
 		--env "VNC_PASSWORD=$$VNC_PASSWORD" \
-		--env "MOUNT_TARGETS=$$mount_targets" \
-		"$$@" \
 		"$$IMAGE" >/dev/null; \
 	if [ "$$HOST_IP" = 0.0.0.0 ]; then host=localhost; else host="$$HOST_IP"; fi; \
 	echo "Container '$$NAME' started."; \
 	echo "noVNC:  http://$$host:$$PORT/vnc.html"
-
-rebuild:
-	@$(MAKE) --no-print-directory BUILD=1 up
 
 down:
 	@set -eu; \
@@ -180,55 +106,29 @@ down:
 	fi
 
 restart: check
-	@$(MAKE) --no-print-directory validate-mounts
 	@$(MAKE) --no-print-directory down
-	@$(MAKE) --no-print-directory SKIP_MOUNT_VALIDATION=1 up
-
-restart-rebuild: check
-	@$(MAKE) --no-print-directory validate-mounts
-	@$(MAKE) --no-print-directory down
-	@$(MAKE) --no-print-directory SKIP_MOUNT_VALIDATION=1 BUILD=1 up
+	@$(MAKE) --no-print-directory up
 
 status:
 	@set -eu; \
 	if container list --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then running=true; else running=false; fi; \
 	if [ "$$HOST_IP" = 0.0.0.0 ]; then host=localhost; else host="$$HOST_IP"; fi; \
-	if [ "$${JSON:-0}" = 1 ]; then \
-		if [ "$$running" = true ]; then url="\"http://$$host:$$PORT/vnc.html\""; else url=null; fi; \
-		printf '{"name":"%s","running":%s,"image":"%s","novnc_url":%s}\n' "$$NAME" "$$running" "$$IMAGE" "$$url"; \
-	else \
-		echo "Container: $$NAME"; \
-		if [ "$$running" = true ]; then echo "Status:    running"; echo "noVNC:     http://$$host:$$PORT/vnc.html"; \
-		elif container list --all --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then echo "Status:    stopped (stale container present)"; \
-		else echo "Status:    not running"; fi; \
-	fi; \
+	echo "Container: $$NAME"; \
+	if [ "$$running" = true ]; then echo "Status:    running"; echo "noVNC:     http://$$host:$$PORT/vnc.html"; \
+	elif container list --all --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then echo "Status:    stopped (stale container present)"; \
+	else echo "Status:    not running"; fi; \
 	[ "$$running" = true ]
-
-status-json:
-	@$(MAKE) --no-print-directory JSON=1 status
 
 clean:
 	@set -eu; \
 	if container list --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then container stop "$$NAME" >/dev/null 2>&1 || true; fi; \
 	if container list --all --quiet 2>/dev/null | grep -Fx "$$NAME" >/dev/null; then container delete "$$NAME" >/dev/null 2>&1 || true; fi; \
-	if [ "$${REMOVE_IMAGE:-0}" = 1 ] && container image list --quiet 2>/dev/null | grep -Fx "$$IMAGE" >/dev/null; then container image delete "$$IMAGE" >/dev/null 2>&1 || true; fi; \
 	echo "Clean complete."
 
-clean-image:
-	@$(MAKE) --no-print-directory REMOVE_IMAGE=1 clean
-
-reset: check
-	@$(MAKE) --no-print-directory validate-mounts
-	@$(MAKE) --no-print-directory clean
-	@$(MAKE) --no-print-directory SKIP_MOUNT_VALIDATION=1 up
-
-reset-image:
-	@$(MAKE) --no-print-directory REMOVE_IMAGE=1 reset
-
-reset-rebuild:
-	@$(MAKE) --no-print-directory validate-mounts
-	@$(MAKE) --no-print-directory clean
-	@$(MAKE) --no-print-directory SKIP_MOUNT_VALIDATION=1 BUILD=1 up
+clean-image: clean
+	@set -eu; \
+	if container image list --quiet 2>/dev/null | grep -Fx "$$IMAGE" >/dev/null; then container image delete "$$IMAGE" >/dev/null 2>&1 || true; fi; \
+	echo "Image clean complete."
 
 shell: check
 	@set -eu; \
