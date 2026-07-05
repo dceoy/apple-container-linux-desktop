@@ -7,6 +7,7 @@ Run a minimal Linux desktop on macOS using Apple Container, XFCE, TigerVNC, and 
 - Apple silicon Mac
 - macOS 26 or later
 - Apple `container` CLI ([install instructions](https://github.com/apple/container))
+- `make` (included with the macOS command line developer tools)
 
 ## Architecture
 
@@ -23,7 +24,8 @@ This repository intentionally keeps the implementation small:
 
 - one `Containerfile`
 - one runtime entrypoint
-- one POSIX shell CLI (`./linux-desktop`) that wraps `container build` / `container run`
+- one `Makefile` that wraps Apple `container` operations
+- one thin POSIX shell compatibility CLI (`./linux-desktop`)
 - no GUI wrapper, no Docker Compose compatibility layer, no Swift application
 
 ## Quick start
@@ -32,18 +34,26 @@ This repository intentionally keeps the implementation small:
 ./linux-desktop up
 ```
 
-This single, idempotent command:
+This single, safe-to-rerun command:
 
-- loads configuration from `.env` (falling back to the defaults in `.env.example`)
+- loads configuration from `.env` when present, otherwise using Makefile defaults
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
-- builds the image only if it doesn't already exist
-- starts the desktop container detached, unless it's already running (in which case it does nothing and just prints how to reach it)
-- prints the noVNC URL and the next commands to run
+- builds the image only if it doesn't already exist, unless `--build`/`--rebuild` is supplied
+- starts the desktop container detached, unless it's already running
+- prints the noVNC URL
 
 Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password (default: `apple` -- change this, see [Security](#security)).
 
-Run `./linux-desktop up` again at any time: it is safe to re-run, will not create a second container, and will not rebuild the image unless asked to.
+Run `./linux-desktop up` again at any time: it is safe to re-run and will not create a second container.
+
+You can also call the Make targets directly:
+
+```sh
+make up
+make status
+make clean
+```
 
 ## CLI reference
 
@@ -53,18 +63,16 @@ Run `./linux-desktop up` again at any time: it is safe to re-run, will not creat
 
 | Command   | Description                                                        |
 | --------- | ------------------------------------------------------------------- |
-| `up`      | Start the desktop. Idempotent; detached by default. `--build`/`--rebuild` forces an image rebuild first. If the desktop is already running, this only rebuilds the image (it never recreates a running container) -- use `restart --build` to rebuild and recreate. `--volume HOST:CONTAINER[:ro\|rw]` bind-mounts a host path (repeatable). |
+| `up`      | Start the desktop. Safe to run repeatedly. `--build`/`--rebuild` rebuilds the image first. If the desktop is already running, this only rebuilds the image and does not recreate the running container. `--volume HOST:CONTAINER[:ro\|rw]` bind-mounts a host path (repeatable). |
 | `down`    | Stop the running desktop container. Safe to run if it's already stopped or doesn't exist. |
 | `restart` | Equivalent to `down` followed by `up`. Accepts `up`'s options, including `--volume`. |
-| `status`  | Print whether the desktop is running, the noVNC URL, and configured mounts. `--json` prints machine-readable JSON. Exits non-zero when not running. |
+| `status`  | Print whether the desktop is running and the noVNC URL. `--json` prints compact machine-readable JSON. Exits non-zero when not running. |
 | `shell`   | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
 | `build`   | Build the container image.                                          |
 | `clean`   | Stop and remove the container. `--image`/`--all` also removes the built image (opt-in). |
 | `reset`   | `clean` followed by `up`. Accepts `clean`'s and `up`'s options (e.g. `reset --image --build --volume ...`). |
-| `doctor`  | Run diagnostics (architecture, macOS version, `container` CLI, container system status, port availability, VNC password) with remediation guidance. |
+| `doctor`  | Run basic diagnostics for architecture, macOS version, `container` CLI, container system status, and VNC password. |
 | `help`    | Show usage.                                                          |
-
-All commands are idempotent: running `up`, `down`, or `clean` repeatedly is always safe.
 
 If something isn't working, start with:
 
@@ -80,7 +88,7 @@ Copy the sample environment file and edit it as needed:
 cp .env.example .env
 ```
 
-`.env` is loaded automatically by `./linux-desktop` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
+`.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
 
 | Variable       | Default                | Description                  |
 | -------------- | ----------------------- | ----------------------------- |
@@ -108,7 +116,7 @@ No host paths are mounted by default. Mounting is entirely opt-in, two ways:
   --volume "$HOME/Downloads:/home/desktop/Downloads:ro"
 ```
 
-**Persistent mounts** applied on every `up`, via a mounts file (kept out of shell parsing so paths with spaces are safe):
+**Persistent mounts** applied on every `up`, via a mounts file:
 
 ```sh
 cp .mounts.example .mounts
@@ -130,10 +138,9 @@ echo 'HOST_MOUNTS_FILE=.mounts' >> .env
 Notes:
 
 - Mode defaults to `rw` if omitted; use `:ro` for read-only access.
-- `./linux-desktop up` always validates every mount spec (well-formed, host path exists) and fails with a clear error if one is missing or malformed -- even if the desktop is already running. If the desktop is already running and the mounts are valid, `up` cannot apply them to the live container; it warns and tells you to run `./linux-desktop restart` (with the same `--volume` flags, if any) to actually mount them.
+- `./linux-desktop up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `./linux-desktop restart` to recreate it.
 - Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.
 - The container-side path is created automatically by the entrypoint on a best-effort basis (`mkdir -p`). If it lives somewhere the non-root container user can't create (e.g. directly under `/`), pre-create it in a custom image or mount under `/home/desktop` instead.
-- `./linux-desktop status` (and `status --json`) shows mounts configured via `HOST_MOUNTS_FILE`, including whether each host path currently exists. Ad hoc `--volume` flags from a past `up` are not persisted or shown by `status`, since they aren't saved anywhere.
 
 ## Shell access
 
@@ -159,11 +166,13 @@ If the desktop container is already running, this opens a shell inside it. Other
 - The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
 - Always set a non-default `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. `./linux-desktop doctor` warns if the password is still the default.
 - Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
-- Host mounts (see [Host mounts](#host-mounts)) give the desktop direct access to the mounted host path. Only mount what's needed, prefer `:ro` over `:rw`, and remember that anyone who can reach the desktop (via VNC or `./linux-desktop shell`) can read -- and, for `:rw` mounts, write -- those host files.
+- Host mounts give the desktop direct access to the mounted host path. Only mount what's needed, prefer `:ro` over `:rw`, and remember that anyone who can reach the desktop (via VNC or `./linux-desktop shell`) can read -- and, for `:rw` mounts, write -- those host files.
 
 ## Compatibility notes
 
-`scripts/build`, `scripts/run`, `scripts/stop`, and `scripts/shell` still exist and now delegate to `./linux-desktop build`/`up`/`down`/`shell` respectively. The one behavior change: `scripts/run` now starts the desktop **detached** (it returns immediately instead of blocking the terminal in the foreground). Use `./linux-desktop shell`, `./linux-desktop status`, or `./scripts/stop` to interact with or stop it afterwards.
+`scripts/build`, `scripts/run`, `scripts/stop`, and `scripts/shell` still delegate to `./linux-desktop build`/`up`/`down`/`shell` respectively.
+
+`./linux-desktop` remains the stable user-facing command, but most implementation logic now lives in `Makefile` to reduce custom shell code.
 
 ## Scope
 
