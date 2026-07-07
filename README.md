@@ -82,18 +82,18 @@ cp .env.example .env
 
 `.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
 
-| Variable           | Default                | Description                                                                                                            |
-| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `IMAGE`            | `acld:latest`          | Local OCI image name                                                                                                   |
-| `NAME`             | `acld`                 | Container name                                                                                                         |
-| `HOST_IP`          | `127.0.0.1`            | Host bind address                                                                                                      |
-| `PORT`             | `6080`                 | noVNC host port                                                                                                        |
-| `CPUS`             | `4`                    | Container CPU allocation                                                                                               |
-| `MEMORY`           | `4G`                   | Container memory allocation                                                                                            |
-| `VNC_GEOMETRY`     | `1440x900`             | Desktop resolution                                                                                                     |
-| `VNC_DEPTH`        | `24`                   | VNC color depth                                                                                                        |
-| `VNC_PASSWORD`     | `apple`                | VNC password                                                                                                           |
-| `HOST_MOUNTS_FILE` | _(unset)_              | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
+| Variable           | Default       | Description                                                                                                            |
+| ------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `IMAGE`            | `acld:latest` | Local OCI image name                                                                                                   |
+| `NAME`             | `acld`        | Container name                                                                                                         |
+| `HOST_IP`          | `127.0.0.1`   | Host bind address                                                                                                      |
+| `PORT`             | `6080`        | noVNC host port                                                                                                        |
+| `CPUS`             | `4`           | Container CPU allocation                                                                                               |
+| `MEMORY`           | `4G`          | Container memory allocation                                                                                            |
+| `VNC_GEOMETRY`     | `1440x900`    | Desktop resolution                                                                                                     |
+| `VNC_DEPTH`        | `24`          | VNC color depth                                                                                                        |
+| `VNC_PASSWORD`     | `apple`       | VNC password                                                                                                           |
+| `HOST_MOUNTS_FILE` | _(unset)_     | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
 
 Make variables can also be passed inline for one-off overrides:
 
