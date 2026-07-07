@@ -3,8 +3,8 @@ SHELL := /bin/bash
 
 -include .env
 
-IMAGE ?= linux-desktop:latest
-NAME ?= linux-desktop
+IMAGE ?= acld:latest
+NAME ?= acld
 HOST_IP ?= 127.0.0.1
 PORT ?= 6080
 CPUS ?= 4
@@ -31,7 +31,7 @@ collect_mount_specs() { \
 	fi; \
 }; \
 create_mount_specs_file() { \
-	specs_file=$$(mktemp "$${TMPDIR:-/tmp}/linux-desktop-mounts.XXXXXX"); \
+	specs_file=$$(mktemp "$${TMPDIR:-/tmp}/acld-mounts.XXXXXX"); \
 	trap 'rm -f "$$specs_file"' EXIT HUP INT TERM; \
 	collect_mount_specs "$$specs_file"; \
 }; \
@@ -114,7 +114,7 @@ _validate-mounts:
 
 doctor:
 	@set -euo pipefail; \
-	echo "== linux-desktop doctor =="; \
+	echo "== acld doctor =="; \
 	if $(MAKE) --no-print-directory check; then echo "[ OK ] Platform prerequisites"; else echo "[FAIL] Platform prerequisites"; exit 1; fi; \
 	if container system status >/dev/null 2>&1; then echo "[ OK ] Apple container system: running"; else echo "[WARN] Apple container system: not running; 'up' will start it"; fi; \
 	if [[ "$$VNC_PASSWORD" == apple ]]; then echo "[WARN] VNC_PASSWORD: still set to the default value"; else echo "[ OK ] VNC_PASSWORD: overridden from the default"; fi
