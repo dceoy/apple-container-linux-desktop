@@ -1,4 +1,4 @@
-# Apple Container Linux Desktop
+# acld
 
 Run a minimal Linux desktop on macOS using Apple Container, XFCE, TigerVNC, and noVNC.
 
@@ -84,8 +84,8 @@ cp .env.example .env
 
 | Variable           | Default                | Description                                                                                                            |
 | ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `IMAGE`            | `linux-desktop:latest` | Local OCI image name                                                                                                   |
-| `NAME`             | `linux-desktop`        | Container name                                                                                                         |
+| `IMAGE`            | `acld:latest`          | Local OCI image name                                                                                                   |
+| `NAME`             | `acld`                 | Container name                                                                                                         |
 | `HOST_IP`          | `127.0.0.1`            | Host bind address                                                                                                      |
 | `PORT`             | `6080`                 | noVNC host port                                                                                                        |
 | `CPUS`             | `4`                    | Container CPU allocation                                                                                               |
