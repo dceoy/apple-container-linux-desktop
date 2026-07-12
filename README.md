@@ -100,7 +100,7 @@ No host paths are mounted by default. Mounting is opt-in, two ways:
 
 ```sh
 CLI_VOLUMES="$HOME/Desktop:/home/desktop/Desktop" make up
-CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make down up
+make down && CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make up
 ```
 
 For multiple persistent mounts, create a local mounts file and point `.env` at it. The expected format is documented in `.env.example`.
@@ -117,7 +117,7 @@ Notes:
 
 - Blank lines and lines starting with `#` in the mounts file are ignored.
 - Mode defaults to `rw` if omitted; use `:ro` for read-only access.
-- `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make down up` to recreate it.
+- `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make down && make up` to recreate it.
 - Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.
 - The container-side path is created automatically by the entrypoint on a best-effort basis (`mkdir -p`). If it lives somewhere the non-root container user can't create (e.g. directly under `/`), pre-create it in a custom image or mount under `/home/desktop` instead.
 
