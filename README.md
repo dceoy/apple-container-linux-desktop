@@ -57,20 +57,11 @@ make <target> [VARIABLE=value ...]
 | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `up`          | Start the desktop. Safe to run repeatedly.                                                                              |
 | `down`        | Stop the running desktop container. Safe if it is already stopped.                                                      |
-| `restart`     | Equivalent to `down` followed by `up`.                                                                                  |
 | `status`      | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
 | `shell`       | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
 | `build`       | Build the container image.                                                                                              |
-| `clean`       | Stop and remove the container.                                                                                          |
 | `clean-image` | Stop and remove the container, then remove the built image.                                                             |
-| `doctor`      | Run basic diagnostics for architecture, macOS version, `container` CLI, container system status, and VNC password.      |
 | `help`        | Show usage.                                                                                                             |
-
-If something isn't working, start with:
-
-```sh
-make doctor
-```
 
 ## Configuration
 
@@ -109,7 +100,7 @@ No host paths are mounted by default. Mounting is opt-in, two ways:
 
 ```sh
 CLI_VOLUMES="$HOME/Desktop:/home/desktop/Desktop" make up
-CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make restart
+make down && CLI_VOLUMES="$HOME/Downloads:/home/desktop/Downloads:ro" make up
 ```
 
 For multiple persistent mounts, create a local mounts file and point `.env` at it. The expected format is documented in `.env.example`.
@@ -126,7 +117,7 @@ Notes:
 
 - Blank lines and lines starting with `#` in the mounts file are ignored.
 - Mode defaults to `rw` if omitted; use `:ro` for read-only access.
-- `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make restart` to recreate it.
+- `make up` validates every mount spec before starting a new container. If the desktop is already running, requested mounts are not applied to the live container; run `make down && make up` to recreate it.
 - Mounting a path as `rw` prints a warning -- prefer `:ro` unless the desktop actually needs to write there.
 - The container-side path is created automatically by the entrypoint on a best-effort basis (`mkdir -p`). If it lives somewhere the non-root container user can't create (e.g. directly under `/`), pre-create it in a custom image or mount under `/home/desktop` instead.
 
@@ -141,17 +132,16 @@ If the desktop container is already running, this opens a shell inside it. Other
 ## Cleanup
 
 ```sh
-make down          # stop the desktop
-make clean         # stop and remove the container
+make down          # stop and remove the auto-removed desktop container
 make clean-image   # also remove the built image
 ```
 
-`down` and `clean` never fail just because the container is already stopped or doesn't exist. Image deletion is opt-in through `make clean-image`, so a plain `make clean` never discards the built image.
+`make down` is safe when the container is already stopped or absent. `make clean-image` removes any stale container before deleting the image.
 
 ## Security
 
 - The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
-- Always set a non-default `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. `make doctor` warns if the password is still the default.
+- Always set a non-default `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. `make up` warns if the password is still the default.
 - Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
 - Host mounts give the desktop direct access to the mounted host path. Only mount what's needed, prefer `:ro` over `:rw`, and remember that anyone who can reach the desktop (via VNC or `make shell`) can read -- and, for `:rw` mounts, write -- those host files.
 
