@@ -53,15 +53,15 @@ Run `make up` again at any time: it is safe to re-run and will not create a seco
 make <target> [VARIABLE=value ...]
 ```
 
-| Target        | Description                                                                                                             |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `up`          | Start the desktop. Safe to run repeatedly.                                                                              |
-| `down`        | Stop the running desktop container. Safe if it is already stopped.                                                      |
-| `status`      | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
-| `shell`       | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
-| `build`       | Build the container image.                                                                                              |
-| `clean`       | Stop and remove the container, then remove the built image.                                                             |
-| `help`        | Show usage.                                                                                                             |
+| Target   | Description                                                                                                             |
+| -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `up`     | Start the desktop. Safe to run repeatedly.                                                                              |
+| `down`   | Stop the running desktop container. Safe if it is already stopped.                                                      |
+| `status` | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
+| `shell`  | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
+| `build`  | Build the container image.                                                                                              |
+| `clean`  | Stop and remove the container, then remove the built image.                                                             |
+| `help`   | Show usage.                                                                                                             |
 
 ## Configuration
 
