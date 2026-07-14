@@ -14,6 +14,9 @@ if [[ -n "${MOUNT_TARGETS:-}" ]]; then
   done
 fi
 
+# TigerVNC migrates the legacy ~/.vnc directory to ~/.config/tigervnc on
+# first start.  Its migration cannot create ~/.config itself.
+install -d -m 700 "${HOME}/.config"
 install -d -m 700 "${HOME}/.vnc"
 
 printf '%s\n' "${VNC_PASSWORD}" | vncpasswd -f > "${HOME}/.vnc/passwd"

@@ -35,12 +35,12 @@ append_mounts() { \
 		[[ -e "$$host" ]] || { echo "ERROR: host mount path does not exist: '$$host'." >&2; return 1; }; \
 		[[ "$$target" == /* ]] || { echo "ERROR: container mount path must be absolute: '$$target'." >&2; return 2; }; \
 		if [[ "$$mode" == rw ]]; then echo "WARNING: mounting '$$host' as writable at '$$target'. Prefer ':ro' unless write access is required." >&2; fi; \
-		volumes+=(--volume "$$host:$$target:$$mode"); \
+		volumes+=(--volume "$$host:$$target:$$mode"); mount_count=$$((mount_count + 1)); \
 		mount_targets="$${mount_targets:+$$mount_targets:}$$target"; \
 	done; \
 }; \
 load_mounts() { \
-	volumes=(); mount_targets=; \
+	volumes=(); mount_count=0; mount_targets=; \
 	if [[ -n "$${CLI_VOLUMES:-}" ]]; then append_mounts <<<"$$CLI_VOLUMES" || return; fi; \
 	if [[ -n "$${HOST_MOUNTS_FILE:-}" ]]; then \
 		[[ -f "$$HOST_MOUNTS_FILE" ]] || { echo "ERROR: HOST_MOUNTS_FILE is set to '$$HOST_MOUNTS_FILE' but that file does not exist." >&2; return 1; }; \
@@ -95,13 +95,13 @@ up: check
 	container system status >/dev/null 2>&1 || container system start; \
 	if $(CONTAINER_RUNNING); then \
 		echo "Container '$$NAME' is already running."; \
-		if (( $${#volumes[@]} )); then echo "WARNING: requested mounts are not applied to an already-running container; run 'make down && make up' to recreate it." >&2; fi; \
+		if (( mount_count )); then echo "WARNING: requested mounts are not applied to an already-running container; run 'make down && make up' to recreate it." >&2; fi; \
 		echo "noVNC:  $(NOVNC_URL)"; exit 0; \
 	fi; \
 	if ! $(IMAGE_EXISTS); then $(MAKE) --no-print-directory build; fi; \
 	if $(CONTAINER_EXISTS); then echo "Removing stale container '$$NAME'..."; container delete "$$NAME" >/dev/null 2>&1 || true; fi; \
 	echo "Starting container '$$NAME'..."; \
-	container run --detach --rm \
+	container_args=(--detach --rm \
 		--name "$$NAME" \
 		--cpus "$$CPUS" \
 		--memory "$$MEMORY" \
@@ -109,9 +109,9 @@ up: check
 		--env "VNC_GEOMETRY=$$VNC_GEOMETRY" \
 		--env "VNC_DEPTH=$$VNC_DEPTH" \
 		--env "VNC_PASSWORD=$$VNC_PASSWORD" \
-		--env "MOUNT_TARGETS=$$mount_targets" \
-		"$${volumes[@]}" \
-		"$$IMAGE" >/dev/null; \
+		--env "MOUNT_TARGETS=$$mount_targets"); \
+	if (( mount_count )); then container run "$${container_args[@]}" "$${volumes[@]}" "$$IMAGE" >/dev/null; \
+	else container run "$${container_args[@]}" "$$IMAGE" >/dev/null; fi; \
 	echo "Container '$$NAME' started."; \
 	echo "noVNC:  $(NOVNC_URL)"
 
