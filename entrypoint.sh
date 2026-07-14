@@ -22,14 +22,12 @@ install -d -m 700 "${HOME}/.vnc"
 printf '%s\n' "${VNC_PASSWORD}" | vncpasswd -f > "${HOME}/.vnc/passwd"
 chmod 600 "${HOME}/.vnc/passwd"
 
-umask 077
 cat > "${HOME}/.vnc/xstartup" << EOF
 #!/usr/bin/env bash
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 exec startxfce4
 EOF
-
 chmod +x "${HOME}/.vnc/xstartup"
 
 vncserver "${DISPLAY}" \
