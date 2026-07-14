@@ -17,8 +17,6 @@ jobs:
     uses: dceoy/gh-actions-for-devops/.github/workflows/shell-lint.yml@main  # zizmor: ignore[unpinned-uses]
     with:
       search-path: .
-      file-names: |
-        entrypoint.sh
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'

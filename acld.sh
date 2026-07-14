@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+if [[ "${#}" -gt 0 && "${1}" == '--debug' ]]; then
+  set -x && shift
+fi
+
 readonly IMAGE="${IMAGE:-acld:latest}"
 readonly NAME="${NAME:-acld}"
 readonly HOST_IP="${HOST_IP:-127.0.0.1}"
@@ -45,8 +49,12 @@ check() {
 
   arch="$(uname -m 2> /dev/null || printf unknown)"
   case "${arch}" in
-    arm64|aarch64) ;;
-    *) printf 'ERROR: Apple silicon (arm64) is required; detected %s.\n' "${arch}" >&2; return 1 ;;
+    arm64|aarch64 )
+      ;;
+    * )
+      printf 'ERROR: Apple silicon (arm64) is required; detected %s.\n' "${arch}" >&2
+      return 1
+      ;;
   esac
 
   os="$(uname -s 2> /dev/null || printf unknown)"
@@ -59,8 +67,10 @@ check() {
     version="$(sw_vers -productVersion 2> /dev/null || printf unknown)"
     major="${version%%.*}"
     case "${major}" in
-      ''|*[!0-9]*) printf 'WARNING: could not determine macOS version; continuing.\n' >&2 ;;
-      *)
+      ''|*[!0-9]* )
+        printf 'WARNING: could not determine macOS version; continuing.\n' >&2
+        ;;
+      * )
         if (( major < MIN_MACOS_MAJOR )); then
           printf 'ERROR: macOS %s or later is required; detected %s.\n' "${MIN_MACOS_MAJOR}" "${version}" >&2
           return 1
@@ -81,7 +91,11 @@ append_mounts() {
   local spec host target mode extra
 
   while IFS= read -r spec || [[ -n "${spec}" ]]; do
-    case "${spec}" in ''|\#*) continue ;; esac
+    case "${spec}" in
+      ''|\#* )
+        continue
+        ;;
+    esac
     IFS=: read -r host target mode extra <<< "${spec}"
     if [[ -n "${extra:-}" || "${spec}" == *: || -z "${host}" || -z "${target}" ]]; then
       printf "ERROR: invalid mount '%s' (expected HOST:CONTAINER[:ro|rw]).\n" "${spec}" >&2
@@ -89,8 +103,12 @@ append_mounts() {
     fi
     mode="${mode:-rw}"
     case "${mode}" in
-      ro|rw) ;;
-      *) printf "ERROR: invalid mount mode '%s' in '%s'.\n" "${mode}" "${spec}" >&2; return 2 ;;
+      ro|rw )
+        ;;
+      * )
+        printf "ERROR: invalid mount mode '%s' in '%s'.\n" "${mode}" "${spec}" >&2
+        return 2
+        ;;
     esac
     [[ -e "${host}" ]] || { printf "ERROR: host mount path does not exist: '%s'.\n" "${host}" >&2; return 1; }
     [[ "${target}" == /* ]] || { printf "ERROR: container mount path must be absolute: '%s'.\n" "${target}" >&2; return 2; }
@@ -186,9 +204,15 @@ status() {
 }
 
 clean() {
-  if container_running; then container stop "${NAME}" > /dev/null; fi
-  if container_exists; then container delete "${NAME}" > /dev/null; fi
-  if image_exists; then container image delete "${IMAGE}" > /dev/null; fi
+  if container_running; then
+    container stop "${NAME}" > /dev/null
+  fi
+  if container_exists; then
+    container delete "${NAME}" > /dev/null
+  fi
+  if image_exists; then
+    container image delete "${IMAGE}" > /dev/null
+  fi
   printf 'Image clean complete.\n'
 }
 
@@ -236,8 +260,13 @@ main() {
   fi
 
   case "${command}" in
-    help|check|build|up|down|status|clean|shell) "${command}" ;;
-    *) printf 'ERROR: unknown command: %s\n' "${command}" >&2; return 2 ;;
+    help|check|build|up|down|status|clean|shell )
+      "${command}"
+      ;;
+    * )
+      printf 'ERROR: unknown command: %s\n' "${command}" >&2
+      return 2
+      ;;
   esac
 }
 
