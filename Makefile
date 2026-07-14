@@ -49,7 +49,7 @@ load_mounts() { \
 };
 endef
 
-.PHONY: help check build up down status clean-image shell
+.PHONY: help check build up down status clean shell
 
 help:
 	@printf '%s\n' \
@@ -61,7 +61,7 @@ help:
 		'  status       Show whether the desktop is running' \
 		'  shell        Open a shell in the running container, or a temporary one' \
 		'  build        Build the container image' \
-		'  clean-image  Stop and remove the container and built image' \
+		'  clean        Stop and remove the container and built image' \
 		'  help         Show this help message' \
 		'' \
 		'Common variables:' \
@@ -126,7 +126,7 @@ status:
 	elif $(CONTAINER_EXISTS); then echo "Status:    stopped (stale container present)"; exit 1; \
 	else echo "Status:    not running"; exit 1; fi
 
-clean-image:
+clean:
 	@if $(CONTAINER_RUNNING); then container stop "$$NAME" >/dev/null 2>&1 || true; fi
 	@if $(CONTAINER_EXISTS); then container delete "$$NAME" >/dev/null 2>&1 || true; fi
 	@if $(IMAGE_EXISTS); then container image delete "$$IMAGE" >/dev/null 2>&1 || true; fi
