@@ -53,15 +53,15 @@ Run `make up` again at any time: it is safe to re-run and will not create a seco
 make <target> [VARIABLE=value ...]
 ```
 
-| Target   | Description                                                                                                             |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `up`     | Start the desktop. Safe to run repeatedly.                                                                              |
-| `down`   | Stop the running desktop container. Safe if it is already stopped.                                                      |
-| `status` | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
-| `shell`  | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
-| `build`  | Build the container image.                                                                                              |
-| `clean`  | Stop and remove the container, then remove the built image.                                                             |
-| `help`   | Show usage.                                                                                                             |
+| Target        | Description                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `up`          | Start the desktop. Safe to run repeatedly.                                                                              |
+| `down`        | Stop the running desktop container. Safe if it is already stopped.                                                      |
+| `status`      | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
+| `shell`       | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
+| `build`       | Build the container image.                                                                                              |
+| `clean`       | Stop and remove the container, then remove the built image.                                                             |
+| `help`        | Show usage.                                                                                                             |
 
 ## Configuration
 
@@ -80,9 +80,9 @@ The image runs as the non-root user `agent` with UID and GID `1001`; its home di
 | `IMAGE`            | `acld:latest` | Local OCI image name                                                                                                   |
 | `NAME`             | `acld`        | Container name                                                                                                         |
 | `HOST_IP`          | `127.0.0.1`   | Host bind address                                                                                                      |
-| `PORT`              | `6080`        | noVNC host port                                                                                                        |
-| `CPUS`              | `4`           | Container CPU allocation                                                                                               |
-| `MEMORY`            | `4G`          | Container memory allocation                                                                                            |
+| `PORT`             | `6080`        | noVNC host port                                                                                                        |
+| `CPUS`             | `4`           | Container CPU allocation                                                                                               |
+| `MEMORY`           | `4G`          | Container memory allocation                                                                                            |
 | `VNC_GEOMETRY`     | `1440x900`    | Desktop resolution                                                                                                     |
 | `VNC_DEPTH`        | `24`          | VNC color depth                                                                                                        |
 | `VNC_PASSWORD`     | `apple`       | VNC password                                                                                                           |
@@ -134,8 +134,8 @@ If the desktop container is already running, this opens a shell inside it. Other
 ## Cleanup
 
 ```sh
-make down   # stop and remove the auto-removed desktop container
-make clean  # also remove the built image
+make down          # stop and remove the auto-removed desktop container
+make clean         # also remove the built image
 ```
 
 `make down` is safe when the container is already stopped or absent. `make clean` removes any stale container before deleting the image.
