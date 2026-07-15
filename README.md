@@ -1,6 +1,6 @@
 # acld
 
-Run a minimal Linux desktop on macOS using Apple Container, XFCE, TigerVNC, and noVNC.
+Run Claude Desktop on a minimal Linux desktop using Apple Container, XFCE, TigerVNC, and noVNC.
 
 ## Requirements
 
@@ -22,7 +22,9 @@ macOS browser
 
 This repository intentionally keeps the implementation small:
 
-- one `Containerfile`
+- two image definitions: `Containerfile.ai` adds Claude Desktop to the minimal
+  desktop in `Containerfile.base`; the default `Containerfile` symlink selects
+  the AI image
 - one container runtime entrypoint (`entrypoint.sh`)
 - one host-side shell script (`acld.sh`) that wraps Apple `container` operations
 - one small `Makefile` that loads configuration and dispatches to `acld.sh`
@@ -47,6 +49,26 @@ This safe-to-rerun command:
 Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password (default: `apple` -- change this, see [Security](#security)).
 
 Run `make up` again at any time: it is safe to re-run and will not create a second container.
+
+## Image variants
+
+The default `Containerfile` symlink points to `Containerfile.ai`, so `make build`
+and `make up` use the Claude Desktop image. Build either variant explicitly with
+the Apple `container` CLI:
+
+```sh
+container build --platform linux/arm64 --file Containerfile.ai --tag acld:latest .
+container build --platform linux/arm64 --file Containerfile.base --tag acld:base .
+```
+
+The base variant contains XFCE, TigerVNC, and noVNC without Claude Desktop. To
+run it through the existing lifecycle commands, build it with the configured
+image name first:
+
+```sh
+container build --platform linux/arm64 --file Containerfile.base --tag acld:base .
+IMAGE=acld:base make up
+```
 
 ## Make targets
 

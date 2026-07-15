@@ -24,17 +24,17 @@ ENV \
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# hadolint ignore=DL3009
 RUN \
       apt-get -yqq update \
       && apt-get -yqq upgrade \
       && apt-get -yqq install --no-install-recommends --no-install-suggests \
         ca-certificates curl dbus-x11 gnupg novnc procps tigervnc-standalone-server \
-        tigervnc-tools tini websockify xfce4 xfce4-terminal
-
-RUN \
-      curl -fsSL -o /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+        tigervnc-tools tini websockify xfce4 xfce4-terminal \
+      && curl -fsSL -o /usr/share/keyrings/claude-desktop-archive-keyring.asc \
         https://downloads.claude.ai/claude-desktop/key.asc \
+      && gpg --batch --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+        | awk -F: -v expected='31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE' \
+          '$1 == "pub" { public_keys++ } $1 == "fpr" && !fingerprint { fingerprint = $10 } END { exit !(public_keys == 1 && fingerprint == expected) }' \
       && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
         | tee /etc/apt/sources.list.d/claude-desktop.list \
       && apt-get -yqq update \
