@@ -1,6 +1,6 @@
 # acld
 
-Run a minimal Linux desktop on macOS using Apple Container, XFCE, TigerVNC, and noVNC.
+Run Claude Desktop or a minimal Linux desktop using Apple Container, XFCE, TigerVNC, and noVNC.
 
 ## Requirements
 
@@ -22,7 +22,8 @@ macOS browser
 
 This repository intentionally keeps the implementation small:
 
-- one `Containerfile`
+- two image definitions: `Containerfile.ai` adds Claude Desktop to the minimal
+  desktop in `Containerfile.base`
 - one container runtime entrypoint (`entrypoint.sh`)
 - one host-side shell script (`acld.sh`) that wraps Apple `container` operations
 - one small `Makefile` that loads configuration and dispatches to `acld.sh`
@@ -38,15 +39,71 @@ make up
 This safe-to-rerun command:
 
 - loads configuration from `.env` when present, otherwise using Makefile defaults
+- selects the `ai` image variant by default
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
-- builds the image only if it doesn't already exist
-- starts the desktop container detached, unless it's already running
+- builds the selected image only if it doesn't already exist
+- starts the selected desktop container detached, unless it's already running
 - prints the noVNC URL
 
 Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password (default: `apple` -- change this, see [Security](#security)).
 
 Run `make up` again at any time: it is safe to re-run and will not create a second container.
+
+## Image variants
+
+List the available variants:
+
+```sh
+make variants
+```
+
+Use the Claude Desktop image, which is the default:
+
+```sh
+make up
+make up VARIANT=ai
+```
+
+Use the minimal XFCE, TigerVNC, and noVNC image without Claude Desktop:
+
+```sh
+make up VARIANT=base
+```
+
+`VARIANT` selects the Containerfile, image tag, and container name together:
+
+| Variant | Containerfile        | Image       | Container   |
+| ------- | -------------------- | ----------- | ----------- |
+| `ai`    | `Containerfile.ai`   | `acld:ai`   | `acld-ai`   |
+| `base`  | `Containerfile.base` | `acld:base` | `acld-base` |
+
+All lifecycle commands use the selected variant:
+
+```sh
+make build VARIANT=base
+make status VARIANT=base
+make down VARIANT=base
+make clean VARIANT=base
+```
+
+The variants can coexist because they use different image and container names. To run both simultaneously, assign a different host port to one of them:
+
+```sh
+make up VARIANT=ai
+make up VARIANT=base PORT=6081
+```
+
+When upgrading from a version that used the container name `acld`, stop that legacy container once before starting the default `acld-ai` container:
+
+```sh
+make down NAME=acld
+make up
+```
+
+The default `make up` detects a running legacy container on the old default noVNC endpoint and prints this migration command instead of attempting to start a conflicting container.
+
+`CONTAINERFILE`, `IMAGE`, and `NAME` remain independently overridable for custom images. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
 
 ## Make targets
 
@@ -54,15 +111,16 @@ Run `make up` again at any time: it is safe to re-run and will not create a seco
 make <target> [VARIABLE=value ...]
 ```
 
-| Target   | Description                                                                                                             |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `up`     | Start the desktop. Safe to run repeatedly.                                                                              |
-| `down`   | Stop the running desktop container. Safe if it is already stopped.                                                      |
-| `status` | Print whether the desktop is running and the noVNC URL. Exits non-zero when not running.                                |
-| `shell`  | Open an interactive shell. Uses the running container if there is one, otherwise starts a temporary one from the image. |
-| `build`  | Build the container image.                                                                                              |
-| `clean`  | Stop and remove the container, then remove the built image.                                                             |
-| `help`   | Show usage.                                                                                                             |
+| Target     | Description                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `up`       | Start the selected desktop. Safe to run repeatedly.                                                              |
+| `down`     | Stop the selected desktop container. Safe if it is already stopped.                                              |
+| `status`   | Print whether the selected desktop is running and the noVNC URL. Exits non-zero when not running.                |
+| `shell`    | Open an interactive shell. Uses the selected running container, otherwise starts a temporary one from its image. |
+| `build`    | Build the selected container image.                                                                              |
+| `clean`    | Stop and remove the selected container, then remove its built image.                                             |
+| `variants` | List available `Containerfile.*` image variants.                                                                 |
+| `help`     | Show usage.                                                                                                      |
 
 ## Configuration
 
@@ -76,23 +134,25 @@ cp .env.example .env
 
 The image runs as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`.
 
-| Variable           | Default       | Description                                                                                                            |
-| ------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `IMAGE`            | `acld:latest` | Local OCI image name                                                                                                   |
-| `NAME`             | `acld`        | Container name                                                                                                         |
-| `HOST_IP`          | `127.0.0.1`   | Host bind address                                                                                                      |
-| `PORT`             | `6080`        | noVNC host port                                                                                                        |
-| `CPUS`             | `4`           | Container CPU allocation                                                                                               |
-| `MEMORY`           | `4G`          | Container memory allocation                                                                                            |
-| `VNC_GEOMETRY`     | `1440x900`    | Desktop resolution                                                                                                     |
-| `VNC_DEPTH`        | `24`          | VNC color depth                                                                                                        |
-| `VNC_PASSWORD`     | `apple`       | VNC password                                                                                                           |
-| `HOST_MOUNTS_FILE` | _(unset)_     | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
+| Variable           | Default                    | Description                                                                                                            |
+| ------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `VARIANT`          | `ai`                       | Image variant; selects the derived Containerfile, image tag, and container name                                        |
+| `CONTAINERFILE`    | `Containerfile.${VARIANT}` | Container build definition; normally derived from `VARIANT`                                                            |
+| `IMAGE`            | `acld:${VARIANT}`          | Local OCI image name; normally derived from `VARIANT`                                                                  |
+| `NAME`             | `acld-${VARIANT}`          | Container name; normally derived from `VARIANT`                                                                        |
+| `HOST_IP`          | `127.0.0.1`                | Host bind address                                                                                                      |
+| `PORT`             | `6080`                     | noVNC host port                                                                                                        |
+| `CPUS`             | `4`                        | Container CPU allocation                                                                                               |
+| `MEMORY`           | `4G`                       | Container memory allocation                                                                                            |
+| `VNC_GEOMETRY`     | `1440x900`                 | Desktop resolution                                                                                                     |
+| `VNC_DEPTH`        | `24`                       | VNC color depth                                                                                                        |
+| `VNC_PASSWORD`     | `apple`                    | VNC password                                                                                                           |
+| `HOST_MOUNTS_FILE` | _(unset)_                  | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
 
 Make variables can also be passed inline for one-off overrides:
 
 ```sh
-PORT=6081 MEMORY=8G make up
+make up VARIANT=base PORT=6081 MEMORY=8G
 ```
 
 ## Host mounts
@@ -128,18 +188,20 @@ Notes:
 
 ```sh
 make shell
+make shell VARIANT=base
 ```
 
-If the desktop container is already running, this opens a shell inside it. Otherwise it starts a temporary, disposable container from the built image.
+If the selected desktop container is already running, this opens a shell inside it. Otherwise it starts a temporary, disposable container from the selected built image.
 
 ## Cleanup
 
 ```sh
-make down          # stop and remove the auto-removed desktop container
-make clean         # also remove the built image
+make down                 # stop the default AI container
+make clean                # also remove the default AI image
+make clean VARIANT=base   # remove the base container and image
 ```
 
-`make down` is safe when the container is already stopped or absent. `make clean` removes any stale container before deleting the image.
+`make down` is safe when the selected container is already stopped or absent. `make clean` removes any stale selected container before deleting its image.
 
 ## Security
 
