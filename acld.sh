@@ -18,7 +18,14 @@ readonly CPUS="${CPUS:-4}"
 readonly MEMORY="${MEMORY:-4G}"
 readonly VNC_GEOMETRY="${VNC_GEOMETRY:-1440x900}"
 readonly VNC_DEPTH="${VNC_DEPTH:-24}"
-readonly VNC_PASSWORD="${VNC_PASSWORD:-apple}"
+if [[ -n "${VNC_PASSWORD:-}" ]]; then
+  readonly VNC_PASSWORD VNC_PASSWORD_GENERATED=0
+else
+  random_chars="$(head -c 64 /dev/urandom | base64)"
+  random_chars="${random_chars//[^A-Za-z0-9]/}"
+  readonly VNC_PASSWORD="${random_chars:0:8}" VNC_PASSWORD_GENERATED=1
+  unset random_chars
+fi
 readonly HOME_VOLUME="${HOME_VOLUME:-${NAME}-home}"
 readonly CONTAINER_WORKSPACE='/workspace'
 readonly WORKSPACE_DIR="${WORKSPACE_DIR:-$(pwd)}"
@@ -154,9 +161,6 @@ up() {
 
   check
   validate_workspace_dir
-  if [[ "${VNC_PASSWORD}" == apple ]]; then
-    printf 'WARNING: VNC_PASSWORD is still set to the default value.\n' >&2
-  fi
   container system status > /dev/null 2>&1 || container system start
   if container_running; then
     printf "Container '%s' is already running.\n" "${NAME}"
@@ -194,6 +198,9 @@ up() {
   )
   container run "${container_args[@]}" "${IMAGE}" > /dev/null
   printf "Container '%s' started.\n" "${NAME}"
+  if (( VNC_PASSWORD_GENERATED )); then
+    printf 'VNC password (randomly generated): %s\n' "${VNC_PASSWORD}"
+  fi
   printf 'noVNC:  %s\n' "${NOVNC_URL}"
 }
 

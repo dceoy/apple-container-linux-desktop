@@ -47,7 +47,7 @@ This safe-to-rerun command:
 - bind-mounts the current directory (or `WORKSPACE_DIR`) read-write at `/workspace`, and attaches a persistent named volume at `/root`
 - prints the noVNC URL
 
-Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password (default: `apple` -- change this, see [Security](#security)).
+Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password. When `VNC_PASSWORD` is left empty, `make up` generates a random password and prints it once at startup (see [Security](#security)).
 
 Run `make up` again at any time: it is safe to re-run and will not create a second container.
 
@@ -149,7 +149,7 @@ Everything in the container runs as `root`; the entrypoint seeds the persistent 
 | `MEMORY`        | `4G`                                   | Container memory allocation                                                                                                  |
 | `VNC_GEOMETRY`  | `1440x900`                             | Desktop resolution                                                                                                           |
 | `VNC_DEPTH`     | `24`                                   | VNC color depth                                                                                                              |
-| `VNC_PASSWORD`  | `apple`                                | VNC password                                                                                                                 |
+| `VNC_PASSWORD`  | (randomly generated when empty)        | VNC password                                                                                                                 |
 | `WORKSPACE_DIR` | current directory                      | Host directory bind-mounted read-write at `/workspace`. See [Workspace and persistent home](#workspace-and-persistent-home). |
 | `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Named volume backing the persistent `/root` home. See [Workspace and persistent home](#workspace-and-persistent-home).       |
 
@@ -207,7 +207,7 @@ make clean VARIANT=base   # remove the base container and image
 ## Security
 
 - The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
-- Always set a non-default `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. `make up` warns if the password is still the default.
+- Set an explicit `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. When it is left empty, `make up` generates a random password and prints it once at startup.
 - Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
 - The workspace mount gives the desktop direct, read-write access to the host directory `make up` runs from (or `WORKSPACE_DIR`). Anyone who can reach the desktop (via VNC or `make shell`) can read and write those host files, so only run it from -- or point `WORKSPACE_DIR` at -- a directory you're comfortable exposing.
 - The persistent home volume (`HOME_VOLUME`) retains its contents across restarts. Treat it like any other local state: it isn't encrypted at rest, and `make clean` does not remove it (see [Workspace and persistent home](#workspace-and-persistent-home) to reset it).
