@@ -44,7 +44,7 @@ This safe-to-rerun command:
 - starts the Apple container system if it isn't already running
 - pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; otherwise it builds locally
 - starts the selected desktop container detached, unless it's already running
-- bind-mounts the current directory (or `WORKSPACE_DIR`) read-write at `/workspace`, and attaches a persistent named volume at `/home/agent`
+- bind-mounts the current directory (or `WORKSPACE_DIR`) read-write at `/workspace`, and attaches a persistent named volume at `/root`
 - prints the noVNC URL
 
 Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password (default: `apple` -- change this, see [Security](#security)).
@@ -134,7 +134,7 @@ cp .env.example .env
 
 `.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
 
-The entrypoint starts as root to initialize the persistent home volume and the workspace mount, then drops privileges and runs everything else as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`, and the default working directory is `/workspace`.
+Everything in the container runs as `root`; the entrypoint seeds the persistent home volume at `/root` on first start, and the default working directory is `/workspace`.
 
 | Variable        | Default                                | Description                                                                                                                  |
 | --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -151,7 +151,7 @@ The entrypoint starts as root to initialize the persistent home volume and the w
 | `VNC_DEPTH`     | `24`                                   | VNC color depth                                                                                                              |
 | `VNC_PASSWORD`  | `apple`                                | VNC password                                                                                                                 |
 | `WORKSPACE_DIR` | current directory                      | Host directory bind-mounted read-write at `/workspace`. See [Workspace and persistent home](#workspace-and-persistent-home). |
-| `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Named volume backing the persistent `/home/agent`. See [Workspace and persistent home](#workspace-and-persistent-home).      |
+| `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Named volume backing the persistent `/root` home. See [Workspace and persistent home](#workspace-and-persistent-home).       |
 
 Make variables can also be passed inline for one-off overrides:
 
@@ -169,7 +169,7 @@ Every `make up` attaches exactly two mounts -- there is no support for mounting 
   WORKSPACE_DIR=~/projects/demo make up
   ```
 
-- **Home**: `/home/agent` is backed by a named Apple Container volume (`HOME_VOLUME`, default `acld-${VARIANT}-home`) so desktop settings, Claude Desktop configuration, and anything else written under the home directory survive `make down` / `make up` cycles. The volume is created automatically and seeded once from the image's default home skeleton the first time it's used; later starts leave its contents untouched.
+- **Home**: `/root` is backed by a named Apple Container volume (`HOME_VOLUME`, default `acld-${VARIANT}-home`) so desktop settings, Claude Desktop configuration, and anything else written under the home directory survive `make down` / `make up` cycles. The volume is created automatically and seeded once from the image's default home skeleton the first time it's used; later starts leave its contents untouched.
 
 Notes:
 

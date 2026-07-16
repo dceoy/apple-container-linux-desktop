@@ -2,9 +2,6 @@
 FROM ubuntu:26.04
 
 ARG DEBIAN_FRONTEND='noninteractive'
-ARG USER_NAME='agent'
-ARG USER_UID='1001'
-ARG USER_GID='1001'
 ARG VNC_GEOMETRY='1440x900'
 ARG VNC_DEPTH='24'
 ARG NOVNC_PORT='6080'
@@ -86,16 +83,13 @@ RUN \
       && pnpm config set store-dir /usr/local/share/pnpm/store
 
 RUN \
-      groupadd --gid "${USER_GID}" "${USER_NAME}" \
-      && useradd --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash --create-home "${USER_NAME}" \
-      && mkdir -p /opt/home-skel /workspace \
-      && cp -a "/home/${USER_NAME}/." /opt/home-skel/ \
-      && chown -R "${USER_NAME}:${USER_NAME}" /opt/home-skel /workspace
+      mkdir -p /opt/home-skel /workspace \
+      && cp -a /root/. /opt/home-skel/
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
-# The entrypoint starts as root to initialize the persistent home volume
-# and the workspace mount, then drops privileges to the agent user.
+# The container runs entirely as root; the entrypoint seeds the persistent
+# home volume from the image's skeleton home on first start.
 # hadolint ignore=DL3002
 USER root   # trivy:ignore:AVD-DS-0002
 WORKDIR /workspace

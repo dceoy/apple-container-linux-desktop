@@ -19,7 +19,7 @@ readonly MEMORY="${MEMORY:-4G}"
 readonly VNC_GEOMETRY="${VNC_GEOMETRY:-1440x900}"
 readonly VNC_DEPTH="${VNC_DEPTH:-24}"
 readonly VNC_PASSWORD="${VNC_PASSWORD:-apple}"
-readonly CONTAINER_HOME='/home/agent'
+readonly CONTAINER_HOME='/root'
 readonly HOME_VOLUME="${HOME_VOLUME:-${NAME}-home}"
 readonly CONTAINER_WORKSPACE='/workspace'
 readonly WORKSPACE_DIR="${WORKSPACE_DIR:-$(pwd)}"
@@ -181,11 +181,8 @@ up() {
     container delete "${NAME}" > /dev/null
   fi
   printf "Starting container '%s'...\n" "${NAME}"
-  # The image defaults to the non-root agent user; start as root so the
-  # entrypoint can initialize the mounts before dropping privileges.
   container_args=(
     --detach --rm
-    --uid 0 --gid 0
     --name "${NAME}"
     --cpus "${CPUS}"
     --memory "${MEMORY}"
@@ -250,10 +247,9 @@ shell() {
     printf "ERROR: image '%s' not found. Run 'make pull' or 'make build' first.\n" "${IMAGE}" >&2
     return 1
   fi
-  # The image entrypoint initializes the persistent home volume as root,
-  # drops privileges to the agent user, and runs the given command.
+  # The image entrypoint initializes the persistent home volume and runs
+  # the given command as root.
   exec container run --rm --interactive --tty \
-    --uid 0 --gid 0 \
     --volume "${HOME_VOLUME}:${CONTAINER_HOME}" \
     --volume "${WORKSPACE_DIR}:${CONTAINER_WORKSPACE}" \
     "${IMAGE}" /bin/bash
