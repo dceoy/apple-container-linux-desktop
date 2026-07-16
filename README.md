@@ -26,7 +26,7 @@ This repository intentionally keeps the implementation small:
   desktop in `Containerfile.base`
 - one container runtime entrypoint (`entrypoint.sh`)
 - one host-side shell script (`acld.sh`) that wraps Apple `container` operations
-- one small `Makefile` that loads configuration and dispatches to `acld.sh`
+- one small `Makefile` that dispatches to `acld.sh`
 - exactly one host bind mount (the workspace) plus one persistent named volume (the home directory)
 - no GUI wrapper, Docker Compose compatibility layer, or Swift application
 
@@ -38,7 +38,6 @@ make up
 
 This safe-to-rerun command:
 
-- loads configuration from `.env` when present, otherwise using Makefile defaults
 - selects the `ai` image variant by default
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
@@ -126,13 +125,7 @@ make <target> [VARIABLE=value ...]
 
 ## Configuration
 
-Copy the sample environment file and edit it as needed:
-
-```sh
-cp .env.example .env
-```
-
-`.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
+Configuration is passed as Make variables (or exported environment variables); any variable left unset falls back to the default shown below.
 
 Everything in the container runs as `root`; the entrypoint seeds the persistent home volume at `/root` on first start, and the default working directory is `/workspace`.
 
@@ -153,7 +146,7 @@ Everything in the container runs as `root`; the entrypoint seeds the persistent 
 | `WORKSPACE_DIR` | current directory                      | Host directory bind-mounted read-write at `/workspace`. See [Workspace and persistent home](#workspace-and-persistent-home). |
 | `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Named volume backing the persistent `/root` home. See [Workspace and persistent home](#workspace-and-persistent-home).       |
 
-Make variables can also be passed inline for one-off overrides:
+Example:
 
 ```sh
 make up VARIANT=base PORT=6081 MEMORY=8G
@@ -207,7 +200,7 @@ make clean VARIANT=base   # remove the base container and image
 ## Security
 
 - The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
-- Set an explicit `VNC_PASSWORD` in `.env` before exposing `PORT` beyond localhost. When it is left empty, `make up` generates a random password and prints it once at startup.
+- Set an explicit `VNC_PASSWORD` before exposing `PORT` beyond localhost. When it is left empty, `make up` generates a random password and prints it once at startup.
 - Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
 - The workspace mount gives the desktop direct, read-write access to the host directory `make up` runs from (or `WORKSPACE_DIR`). Anyone who can reach the desktop (via VNC or `make shell`) can read and write those host files, so only run it from -- or point `WORKSPACE_DIR` at -- a directory you're comfortable exposing.
 - The persistent home volume (`HOME_VOLUME`) retains its contents across restarts. Treat it like any other local state: it isn't encrypted at rest, and `make clean` does not remove it (see [Workspace and persistent home](#workspace-and-persistent-home) to reset it).

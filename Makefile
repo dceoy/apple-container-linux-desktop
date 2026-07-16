@@ -1,7 +1,5 @@
 .DEFAULT_GOAL := help
 
--include .env
-
 VARIANT ?= ai
 CONTAINERFILE ?= Containerfile.$(VARIANT)
 IMAGE ?= acld:$(VARIANT)

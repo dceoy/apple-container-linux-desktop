@@ -286,7 +286,7 @@ Common variables:
   HOME_VOLUME=\${NAME}-home
   WORKSPACE_DIR=<current directory>
 
-Configuration is read from .env when present, with Makefile defaults otherwise.
+Configuration uses Makefile defaults unless variables are overridden.
 EOF
 }
 

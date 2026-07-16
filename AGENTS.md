@@ -7,8 +7,8 @@ This repository provides a minimal Linux desktop for Apple Container. Keep chang
 - `Containerfile` builds the Ubuntu/XFCE, TigerVNC, and noVNC image.
 - `entrypoint.sh` initializes VNC and launches websockify inside the container.
 - `acld.sh` implements host-side lifecycle, validation, and mount handling.
-- `Makefile` is the public command interface and loads optional `.env` values.
-- `.env.example` documents supported configuration; `.github/workflows/ci.yml` defines CI.
+- `Makefile` is the public command interface.
+- `.github/workflows/ci.yml` defines CI.
 
 There is currently no separate test or asset directory. Add tests alongside a new testing framework only when behavior warrants it.
 
@@ -37,4 +37,4 @@ Recent commits use short, imperative, sentence-case subjects, for example `Refin
 
 ## Security & Configuration
 
-Never commit `.env`, mount files, credentials, or host-specific paths. Keep noVNC bound to `127.0.0.1` by default, use a non-default VNC password before broader exposure, and prefer read-only (`:ro`) host mounts.
+Never commit credentials or host-specific paths. Keep noVNC bound to `127.0.0.1` by default, and use a non-default VNC password before broader exposure.

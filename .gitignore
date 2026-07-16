@@ -1,9 +1,5 @@
 # macOS
 .DS_Store
 
-# Local environment
-.env
-.mounts
-
 # Logs
 *.log
