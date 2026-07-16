@@ -79,6 +79,19 @@ RUN \
       && pnpm config set store-dir /usr/local/share/pnpm/store
 
 RUN \
+      mkdir -p /usr/share/applications \
+      && { \
+        echo '[Desktop Entry]'; \
+        echo 'Type=Application'; \
+        echo 'Name=Claude Desktop'; \
+        echo 'Comment=Claude AI Assistant for Desktop'; \
+        echo 'Exec=/usr/bin/claude-desktop'; \
+        echo 'Icon=application-x-python'; \
+        echo 'Categories=Development;Utility;'; \
+        echo 'Terminal=false'; \
+      } > /usr/share/applications/claude-desktop.desktop
+
+RUN \
       mkdir -p /opt/home-skel /workspace \
       && cp -a /root/. /opt/home-skel/
 
