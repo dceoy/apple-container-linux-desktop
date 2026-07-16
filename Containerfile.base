@@ -43,7 +43,7 @@ RUN \
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
 # hadolint ignore=DL3002
-USER root   # trivy:ignore:AVD-DS-0002
+USER root
 WORKDIR /workspace
 
 EXPOSE ${NOVNC_PORT}
