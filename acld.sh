@@ -61,6 +61,10 @@ using_default_containerfile_and_image() {
   [[ "${CONTAINERFILE}" == "Containerfile.${VARIANT}" && "${IMAGE}" == "acld:${VARIANT}" ]]
 }
 
+published_variant() {
+  [[ "${VARIANT}" == ai || "${VARIANT}" == base ]]
+}
+
 check() {
   local arch os version major
 
@@ -216,7 +220,7 @@ up() {
     return 1
   fi
   if ! image_exists; then
-    if using_default_containerfile_and_image; then
+    if using_default_containerfile_and_image && published_variant; then
       pull
     else
       build

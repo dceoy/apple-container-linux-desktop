@@ -42,7 +42,7 @@ This safe-to-rerun command:
 - selects the `ai` image variant by default
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
-- pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, unless `CONTAINERFILE` or `IMAGE` was overridden, in which case it builds locally instead
+- pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; otherwise it builds locally
 - starts the selected desktop container detached, unless it's already running
 - prints the noVNC URL
 
@@ -103,7 +103,7 @@ make up
 
 The default `make up` detects a running legacy container on the old default noVNC endpoint and prints this migration command instead of attempting to start a conflicting container.
 
-`CONTAINERFILE`, `IMAGE`, `REMOTE_IMAGE`, and `NAME` remain independently overridable for custom images. If `CONTAINERFILE` or `IMAGE` is overridden, `make up` builds the custom image locally instead of pulling `REMOTE_IMAGE`, since the registry image would not match the custom Containerfile. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
+`CONTAINERFILE`, `IMAGE`, `REMOTE_IMAGE`, and `NAME` remain independently overridable for custom images. `make up` only pulls from GitHub Container Registry for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; any other variant (including a locally added `Containerfile.foo`), or an overridden `CONTAINERFILE`/`IMAGE`, is built locally instead, since no matching image is published for it. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
 
 ## Make targets
 
