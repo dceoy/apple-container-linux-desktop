@@ -21,10 +21,7 @@ readonly VNC_DEPTH="${VNC_DEPTH:-24}"
 if [[ -n "${VNC_PASSWORD:-}" ]]; then
   readonly VNC_PASSWORD VNC_PASSWORD_GENERATED=0
 else
-  random_chars="$(head -c 64 /dev/urandom | base64)"
-  random_chars="${random_chars//[^A-Za-z0-9]/}"
-  readonly VNC_PASSWORD="${random_chars:0:8}" VNC_PASSWORD_GENERATED=1
-  unset random_chars
+  readonly VNC_PASSWORD="${RANDOM}" VNC_PASSWORD_GENERATED=1
 fi
 readonly HOME_VOLUME="${HOME_VOLUME:-${NAME}-home}"
 readonly CONTAINER_WORKSPACE='/workspace'

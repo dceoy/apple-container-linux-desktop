@@ -24,14 +24,7 @@ if (( ${#} > 0 )); then
   exec "${@}"
 fi
 
-if [[ -z "${VNC_PASSWORD:-}" ]]; then
-  random_chars="$(head -c 64 /dev/urandom | base64)"
-  random_chars="${random_chars//[^A-Za-z0-9]/}"
-  VNC_PASSWORD="${random_chars:0:8}"
-  unset random_chars
-  printf 'VNC password (randomly generated): %s\n' "${VNC_PASSWORD}"
-fi
-readonly VNC_PASSWORD
+: "${VNC_PASSWORD:?VNC_PASSWORD must be set}"
 
 mkdir -p "${VNC_CONFIG_DIR}"
 printf '%s\n' "${VNC_PASSWORD}" | vncpasswd -f > "${VNC_CONFIG_DIR}/passwd"
