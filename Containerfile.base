@@ -22,6 +22,7 @@ ENV \
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# hadolint ignore=DL3008
 RUN \
       printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
         > /etc/apt/apt.conf.d/99acld-network-retries \

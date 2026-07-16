@@ -7,8 +7,6 @@ ARG USER_GID='1001'
 ARG VNC_GEOMETRY='1440x900'
 ARG VNC_DEPTH='24'
 ARG NOVNC_PORT='6080'
-# trivy:ignore:DS-0031 -- public GPG key fingerprint used to verify the Claude Desktop apt key, not a secret
-ARG CLAUDE_DESKTOP_KEY_FINGERPRINT='31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE'
 
 LABEL \
   org.opencontainers.image.title="acld" \
@@ -24,8 +22,10 @@ ENV \
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# hadolint ignore=DL3008
 RUN \
-      printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
+      claude_desktop_key_fingerprint='31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE' \
+      && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
         > /etc/apt/apt.conf.d/99acld-network-retries \
       && apt-get -yqq update \
       && apt-get -yqq upgrade \
@@ -35,7 +35,7 @@ RUN \
       && curl -fsSL -o /usr/share/keyrings/claude-desktop-archive-keyring.asc \
         https://downloads.claude.ai/claude-desktop/key.asc \
       && gpg --batch --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc \
-        | awk -F: -v expected="${CLAUDE_DESKTOP_KEY_FINGERPRINT}" \
+        | awk -F: -v expected="${claude_desktop_key_fingerprint}" \
           '$1 == "pub" { public_keys++ } $1 == "fpr" && !fingerprint { fingerprint = $10 } END { exit !(public_keys == 1 && fingerprint == expected) }' \
       && curl -fsSL -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
         https://cli.github.com/packages/githubcli-archive-keyring.gpg \
