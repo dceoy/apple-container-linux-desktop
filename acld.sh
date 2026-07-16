@@ -163,11 +163,8 @@ up() {
     container delete "${NAME}" > /dev/null
   fi
   printf "Starting container '%s'...\n" "${NAME}"
-  # The entrypoint starts as root to initialize the mounts before dropping
-  # privileges to the agent user.
   container_args=(
     --detach --rm
-    --uid 0 --gid 0
     --name "${NAME}"
     --cpus "${CPUS}"
     --memory "${MEMORY}"
@@ -226,19 +223,16 @@ shell() {
   validate_workspace_dir
   container system status > /dev/null 2>&1 || container system start
   if container_running; then
-    exec container exec --interactive --tty "${NAME}" /usr/local/bin/entrypoint /bin/bash
-  fi
-  if ! image_exists; then
+    exec container exec --interactive --tty "${NAME}" /usr/local/bin/entrypoint su -
+  elif ! image_exists; then
+    exec container run --rm --interactive --tty \
+      --volume "${HOME_VOLUME}:${CONTAINER_HOME}" \
+      --volume "${WORKSPACE_DIR}:${CONTAINER_WORKSPACE}" \
+      "${IMAGE}" su -
+  else
     printf "ERROR: image '%s' not found. Run 'make pull' or 'make build' first.\n" "${IMAGE}" >&2
     return 1
   fi
-  # The image entrypoint initializes the persistent home volume as root,
-  # drops privileges to the agent user, and runs the given command.
-  exec container run --rm --interactive --tty \
-    --uid 0 --gid 0 \
-    --volume "${HOME_VOLUME}:${CONTAINER_HOME}" \
-    --volume "${WORKSPACE_DIR}:${CONTAINER_WORKSPACE}" \
-    "${IMAGE}" /bin/bash
 }
 
 help() {
@@ -275,17 +269,17 @@ main() {
   if (( ${#} > 1 )); then
     printf 'ERROR: expected one command, got %s.\n' "${#}" >&2
     return 2
+  else
+    case "${command}" in
+      help|check|variants|pull|build|up|down|status|clean|shell )
+        "${command}"
+        ;;
+      * )
+        printf 'ERROR: unknown command: %s\n' "${command}" >&2
+        return 2
+        ;;
+    esac
   fi
-
-  case "${command}" in
-    help|check|variants|pull|build|up|down|status|clean|shell )
-      "${command}"
-      ;;
-    * )
-      printf 'ERROR: unknown command: %s\n' "${command}" >&2
-      return 2
-      ;;
-  esac
 }
 
 main "${@}"

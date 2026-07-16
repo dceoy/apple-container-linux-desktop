@@ -41,7 +41,7 @@ RUN \
 
 RUN \
       groupadd --gid "${USER_GID}" "${USER_NAME}" \
-      && useradd --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash --create-home "${USER_NAME}" \
+      && useradd --uid "${USER_UID}" --gid "${USER_GID}" --groups root --shell /bin/bash --create-home "${USER_NAME}" \
       && mkdir -p /opt/home-skel /workspace \
       && cp -a "/home/${USER_NAME}/." /opt/home-skel/ \
       && chown -R "${USER_NAME}:${USER_NAME}" /opt/home-skel /workspace
