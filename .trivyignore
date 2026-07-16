@@ -1,4 +1,0 @@
-# DS-0002: the image intentionally starts as root so entrypoint.sh can fix
-# ownership of the persistent home and workspace mounts before dropping
-# privileges to the "agent" user via setpriv. See entrypoint.sh.
-DS-0002

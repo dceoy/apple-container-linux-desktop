@@ -81,8 +81,10 @@ RUN \
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
-# The entrypoint starts as root to initialize the persistent home volume
-# and the workspace mount, then drops privileges to the agent user.
+# The image defaults to the non-root agent user. acld.sh starts the
+# container with --uid 0 so the entrypoint can initialize the persistent
+# home volume and the workspace mount before dropping privileges.
+USER ${USER_NAME}
 WORKDIR /workspace
 
 EXPOSE ${NOVNC_PORT}

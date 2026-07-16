@@ -181,8 +181,11 @@ up() {
     container delete "${NAME}" > /dev/null
   fi
   printf "Starting container '%s'...\n" "${NAME}"
+  # The image defaults to the non-root agent user; start as root so the
+  # entrypoint can initialize the mounts before dropping privileges.
   container_args=(
     --detach --rm
+    --uid 0 --gid 0
     --name "${NAME}"
     --cpus "${CPUS}"
     --memory "${MEMORY}"
@@ -250,6 +253,7 @@ shell() {
   # The image entrypoint initializes the persistent home volume as root,
   # drops privileges to the agent user, and runs the given command.
   exec container run --rm --interactive --tty \
+    --uid 0 --gid 0 \
     --volume "${HOME_VOLUME}:${CONTAINER_HOME}" \
     --volume "${WORKSPACE_DIR}:${CONTAINER_WORKSPACE}" \
     "${IMAGE}" /bin/bash
