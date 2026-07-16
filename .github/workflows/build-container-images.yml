@@ -1,0 +1,57 @@
+---
+name: Build container images
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Containerfile.*
+      - entrypoint.sh
+      - acld.sh
+      - Makefile
+      - .github/workflows/build-container-images.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Containerfile.*
+      - entrypoint.sh
+      - acld.sh
+      - Makefile
+      - .github/workflows/build-container-images.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-image:
+    name: Build acld:${{ matrix.variant }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - base
+          - ai
+    env:
+      VARIANT: ${{ matrix.variant }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5  # zizmor: ignore[unpinned-uses]
+        with:
+          persist-credentials: false
+      - name: Install Apple container CLI
+        run: |
+          brew install --cask container
+          container --version
+      - name: Start container system service
+        run: |
+          container system start --enable-kernel-install \
+            || container system start
+          container system status
+      - name: Validate build environment
+        run: make check
+      - name: Build container image
+        run: make build
+      - name: List built images
+        run: container image list
