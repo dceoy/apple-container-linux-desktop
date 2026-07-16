@@ -23,7 +23,8 @@ ENV \
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN \
-      apt-get -yqq update \
+      sed -i 's|http://ports.ubuntu.com|http://azure.ports.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources \
+      && apt-get -yqq update \
       && apt-get -yqq upgrade \
       && apt-get -yqq install --no-install-recommends --no-install-suggests \
         ca-certificates dbus-x11 novnc procps tigervnc-standalone-server \
