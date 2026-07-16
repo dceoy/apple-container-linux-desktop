@@ -1,0 +1,46 @@
+---
+name: Build and push container images
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Containerfile.*
+      - entrypoint.sh
+      - .dockerignore
+      - .github/workflows/build-container-images.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - Containerfile.*
+      - entrypoint.sh
+      - .dockerignore
+      - .github/workflows/build-container-images.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-push:
+    name: Build and push acld ${{ matrix.variant }} image
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - base
+          - ai
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: dceoy/gh-actions-for-devops/.github/workflows/docker-build-and-push.yml@main  # zizmor: ignore[unpinned-uses]
+    with:
+      registry: ghcr.io
+      image-name: ${{ github.repository }}/${{ matrix.variant }}
+      file: Containerfile.${{ matrix.variant }}
+      platforms: linux/arm64
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      image-artifact-name: container-image-${{ matrix.variant }}
+    secrets:
+      DOCKER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

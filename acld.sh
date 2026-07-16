@@ -9,6 +9,7 @@ fi
 readonly VARIANT="${VARIANT:-ai}"
 readonly CONTAINERFILE="${CONTAINERFILE:-Containerfile.${VARIANT}}"
 readonly IMAGE="${IMAGE:-acld:${VARIANT}}"
+readonly REMOTE_IMAGE="${REMOTE_IMAGE:-ghcr.io/dceoy/acld/${VARIANT}:latest}"
 readonly NAME="${NAME:-acld-${VARIANT}}"
 readonly LEGACY_NAME='acld'
 readonly HOST_IP="${HOST_IP:-127.0.0.1}"
@@ -50,6 +51,18 @@ legacy_container_running() {
 
 image_exists() {
   container image list --quiet 2> /dev/null | grep -Fx "${IMAGE}" > /dev/null
+}
+
+remote_image_exists() {
+  container image list --quiet 2> /dev/null | grep -Fx "${REMOTE_IMAGE}" > /dev/null
+}
+
+using_default_containerfile_and_image() {
+  [[ "${CONTAINERFILE}" == "Containerfile.${VARIANT}" && "${IMAGE}" == "acld:${VARIANT}" ]]
+}
+
+published_variant() {
+  [[ "${VARIANT}" == ai || "${VARIANT}" == base ]]
 }
 
 check() {
@@ -174,6 +187,16 @@ build() {
   container build --platform linux/arm64 --file "${CONTAINERFILE}" --tag "${IMAGE}" .
 }
 
+pull() {
+  check
+  container system status > /dev/null 2>&1 || container system start
+  printf "Pulling image '%s'...\n" "${REMOTE_IMAGE}"
+  container image pull --platform linux/arm64 "${REMOTE_IMAGE}"
+  if [[ "${REMOTE_IMAGE}" != "${IMAGE}" ]]; then
+    container image tag "${REMOTE_IMAGE}" "${IMAGE}"
+  fi
+}
+
 up() {
   local -a container_args
 
@@ -196,7 +219,13 @@ up() {
     printf "Stop it with 'make down NAME=%s', then run 'make up' again.\n" "${LEGACY_NAME}" >&2
     return 1
   fi
-  image_exists || build
+  if ! image_exists; then
+    if using_default_containerfile_and_image && published_variant; then
+      pull
+    else
+      build
+    fi
+  fi
   if container_exists; then
     printf "Removing stale container '%s'...\n" "${NAME}"
     container delete "${NAME}" > /dev/null
@@ -250,6 +279,9 @@ clean() {
   if image_exists; then
     container image delete "${IMAGE}" > /dev/null
   fi
+  if [[ "${REMOTE_IMAGE}" != "${IMAGE}" ]] && remote_image_exists; then
+    container image delete "${REMOTE_IMAGE}" > /dev/null
+  fi
   printf 'Image clean complete.\n'
 }
 
@@ -260,7 +292,7 @@ shell() {
     exec container exec --interactive --tty "${NAME}" /bin/bash
   fi
   if ! image_exists; then
-    printf "ERROR: image '%s' not found. Run 'make build' first.\n" "${IMAGE}" >&2
+    printf "ERROR: image '%s' not found. Run 'make pull' or 'make build' first.\n" "${IMAGE}" >&2
     return 1
   fi
   exec container run --rm --interactive --tty --entrypoint /bin/bash "${IMAGE}"
@@ -275,8 +307,9 @@ Targets:
   down         Stop the selected desktop container
   status       Show whether the selected desktop is running
   shell        Open a shell in the selected container, or a temporary one
-  build        Build the selected container image
-  clean        Stop and remove the selected container and built image
+  pull         Pull the selected image from the registry and tag it locally
+  build        Build the selected container image locally
+  clean        Stop and remove the selected container and its images
   variants     List available image variants
   help         Show this help message
 
@@ -284,6 +317,7 @@ Common variables:
   VARIANT=ai|base
   CONTAINERFILE=Containerfile.\${VARIANT}
   IMAGE=acld:\${VARIANT}
+  REMOTE_IMAGE=ghcr.io/dceoy/acld/\${VARIANT}:latest
   NAME=acld-\${VARIANT}
   HOST_IP, PORT, CPUS, MEMORY, VNC_GEOMETRY, VNC_DEPTH, VNC_PASSWORD
   HOST_MOUNTS_FILE=.mounts
@@ -302,7 +336,7 @@ main() {
   fi
 
   case "${command}" in
-    help|check|variants|build|up|down|status|clean|shell )
+    help|check|variants|pull|build|up|down|status|clean|shell )
       "${command}"
       ;;
     * )

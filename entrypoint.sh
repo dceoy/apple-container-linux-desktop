@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+: "${VNC_PASSWORD:?VNC_PASSWORD must be set}"
+
 # Create requested bind-mount target directories on a best-effort basis.
 # Paths outside what this non-root user can create must already exist.
 if [[ -n "${MOUNT_TARGETS:-}" ]]; then

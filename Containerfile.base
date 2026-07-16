@@ -4,7 +4,6 @@ ARG DEBIAN_FRONTEND='noninteractive'
 ARG USER_NAME='agent'
 ARG USER_UID='1001'
 ARG USER_GID='1001'
-ARG VNC_PASSWORD='apple'
 ARG VNC_GEOMETRY='1440x900'
 ARG VNC_DEPTH='24'
 ARG NOVNC_PORT='6080'
@@ -17,15 +16,17 @@ LABEL \
 
 ENV \
   DISPLAY=':1' \
-  VNC_PASSWORD="${VNC_PASSWORD}" \
   VNC_GEOMETRY="${VNC_GEOMETRY}" \
   VNC_DEPTH="${VNC_DEPTH}" \
   NOVNC_PORT="${NOVNC_PORT}"
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
+# hadolint ignore=DL3008
 RUN \
-      apt-get -yqq update \
+      printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
+        > /etc/apt/apt.conf.d/99acld-network-retries \
+      && apt-get -yqq update \
       && apt-get -yqq upgrade \
       && apt-get -yqq install --no-install-recommends --no-install-suggests \
         ca-certificates dbus-x11 novnc procps tigervnc-standalone-server \

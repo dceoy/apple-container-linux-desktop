@@ -42,7 +42,7 @@ This safe-to-rerun command:
 - selects the `ai` image variant by default
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
-- builds the selected image only if it doesn't already exist
+- pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; otherwise it builds locally
 - starts the selected desktop container detached, unless it's already running
 - prints the noVNC URL
 
@@ -103,7 +103,7 @@ make up
 
 The default `make up` detects a running legacy container on the old default noVNC endpoint and prints this migration command instead of attempting to start a conflicting container.
 
-`CONTAINERFILE`, `IMAGE`, and `NAME` remain independently overridable for custom images. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
+`CONTAINERFILE`, `IMAGE`, `REMOTE_IMAGE`, and `NAME` remain independently overridable for custom images. `make up` only pulls from GitHub Container Registry for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; any other variant (including a locally added `Containerfile.foo`), or an overridden `CONTAINERFILE`/`IMAGE`, is built locally instead, since no matching image is published for it. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
 
 ## Make targets
 
@@ -117,8 +117,9 @@ make <target> [VARIABLE=value ...]
 | `down`     | Stop the selected desktop container. Safe if it is already stopped.                                              |
 | `status`   | Print whether the selected desktop is running and the noVNC URL. Exits non-zero when not running.                |
 | `shell`    | Open an interactive shell. Uses the selected running container, otherwise starts a temporary one from its image. |
-| `build`    | Build the selected container image.                                                                              |
-| `clean`    | Stop and remove the selected container, then remove its built image.                                             |
+| `pull`     | Pull the selected image from GitHub Container Registry and tag it as the local image.                            |
+| `build`    | Build the selected container image locally.                                                                      |
+| `clean`    | Stop and remove the selected container, then remove its local and pulled images.                                 |
 | `variants` | List available `Containerfile.*` image variants.                                                                 |
 | `help`     | Show usage.                                                                                                      |
 
@@ -134,20 +135,21 @@ cp .env.example .env
 
 The image runs as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`.
 
-| Variable           | Default                    | Description                                                                                                            |
-| ------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `VARIANT`          | `ai`                       | Image variant; selects the derived Containerfile, image tag, and container name                                        |
-| `CONTAINERFILE`    | `Containerfile.${VARIANT}` | Container build definition; normally derived from `VARIANT`                                                            |
-| `IMAGE`            | `acld:${VARIANT}`          | Local OCI image name; normally derived from `VARIANT`                                                                  |
-| `NAME`             | `acld-${VARIANT}`          | Container name; normally derived from `VARIANT`                                                                        |
-| `HOST_IP`          | `127.0.0.1`                | Host bind address                                                                                                      |
-| `PORT`             | `6080`                     | noVNC host port                                                                                                        |
-| `CPUS`             | `4`                        | Container CPU allocation                                                                                               |
-| `MEMORY`           | `4G`                       | Container memory allocation                                                                                            |
-| `VNC_GEOMETRY`     | `1440x900`                 | Desktop resolution                                                                                                     |
-| `VNC_DEPTH`        | `24`                       | VNC color depth                                                                                                        |
-| `VNC_PASSWORD`     | `apple`                    | VNC password                                                                                                           |
-| `HOST_MOUNTS_FILE` | _(unset)_                  | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
+| Variable           | Default                                | Description                                                                                                            |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `VARIANT`          | `ai`                                   | Image variant; selects the derived Containerfile, image tag, and container name                                        |
+| `CONTAINERFILE`    | `Containerfile.${VARIANT}`             | Container build definition; normally derived from `VARIANT`                                                            |
+| `IMAGE`            | `acld:${VARIANT}`                      | Local OCI image name; normally derived from `VARIANT`                                                                  |
+| `REMOTE_IMAGE`     | `ghcr.io/dceoy/acld/${VARIANT}:latest` | Registry image reference used by `make pull`; normally derived from `VARIANT`                                          |
+| `NAME`             | `acld-${VARIANT}`                      | Container name; normally derived from `VARIANT`                                                                        |
+| `HOST_IP`          | `127.0.0.1`                            | Host bind address                                                                                                      |
+| `PORT`             | `6080`                                 | noVNC host port                                                                                                        |
+| `CPUS`             | `4`                                    | Container CPU allocation                                                                                               |
+| `MEMORY`           | `4G`                                   | Container memory allocation                                                                                            |
+| `VNC_GEOMETRY`     | `1440x900`                             | Desktop resolution                                                                                                     |
+| `VNC_DEPTH`        | `24`                                   | VNC color depth                                                                                                        |
+| `VNC_PASSWORD`     | `apple`                                | VNC password                                                                                                           |
+| `HOST_MOUNTS_FILE` | _(unset)_                              | Path to a file listing host bind mounts. Unset by default: no host paths are mounted. See [Host mounts](#host-mounts). |
 
 Make variables can also be passed inline for one-off overrides:
 
