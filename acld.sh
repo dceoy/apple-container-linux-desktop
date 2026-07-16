@@ -19,7 +19,7 @@ readonly VNC_DEPTH="${VNC_DEPTH:-24}"
 if [[ -n "${VNC_PASSWORD:-}" ]]; then
   readonly VNC_PASSWORD VNC_PASSWORD_GENERATED=0
 else
-  readonly VNC_PASSWORD="${RANDOM}" VNC_PASSWORD_GENERATED=1
+  readonly VNC_PASSWORD="${NAME}-${RANDOM}" VNC_PASSWORD_GENERATED=1
 fi
 readonly HOME_VOLUME="${HOME_VOLUME:-${NAME}-home}"
 readonly CONTAINER_WORKSPACE='/workspace'
