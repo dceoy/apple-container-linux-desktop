@@ -44,7 +44,8 @@ RUN \
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
 
-USER "${USER_NAME}"
+# The entrypoint starts as root to initialize the persistent home volume
+# and the workspace mount, then drops privileges to the agent user.
 WORKDIR /workspace
 
 EXPOSE ${NOVNC_PORT}

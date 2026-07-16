@@ -134,7 +134,7 @@ cp .env.example .env
 
 `.env` is loaded automatically by the `Makefile` (and is git-ignored). Any variable not set in `.env` falls back to the default shown below, which matches `.env.example`.
 
-The image runs as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`, and the default working directory is `/workspace`.
+The entrypoint starts as root to initialize the persistent home volume and the workspace mount, then drops privileges and runs everything else as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`, and the default working directory is `/workspace`.
 
 | Variable        | Default                                | Description                                                                                                                  |
 | --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |

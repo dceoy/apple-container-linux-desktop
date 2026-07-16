@@ -241,16 +241,18 @@ shell() {
   validate_workspace_dir
   container system status > /dev/null 2>&1 || container system start
   if container_running; then
-    exec container exec --interactive --tty "${NAME}" /bin/bash
+    exec container exec --interactive --tty "${NAME}" /usr/local/bin/entrypoint /bin/bash
   fi
   if ! image_exists; then
     printf "ERROR: image '%s' not found. Run 'make pull' or 'make build' first.\n" "${IMAGE}" >&2
     return 1
   fi
-  exec container run --rm --interactive --tty --entrypoint /bin/bash \
+  # The image entrypoint initializes the persistent home volume as root,
+  # drops privileges to the agent user, and runs the given command.
+  exec container run --rm --interactive --tty \
     --volume "${HOME_VOLUME}:${CONTAINER_HOME}" \
     --volume "${WORKSPACE_DIR}:${CONTAINER_WORKSPACE}" \
-    "${IMAGE}"
+    "${IMAGE}" /bin/bash
 }
 
 help() {
