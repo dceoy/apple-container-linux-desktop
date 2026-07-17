@@ -6,7 +6,7 @@ if [[ "${#}" -gt 0 && "${1}" == '--debug' ]]; then
   set -x && shift
 fi
 
-readonly VARIANT="${VARIANT:-ai}"
+readonly VARIANT="${VARIANT:-base}"
 readonly CONTAINERFILE="${CONTAINERFILE:-Containerfile.${VARIANT}}"
 readonly IMAGE="${IMAGE:-ghcr.io/dceoy/acld-${VARIANT}:latest}"
 readonly NAME="${NAME:-acld-${VARIANT}}"

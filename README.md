@@ -38,7 +38,7 @@ make up
 
 This safe-to-rerun command:
 
-- selects the `ai` image variant by default
+- selects the `base` image variant by default
 - verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
 - starts the Apple container system if it isn't already running
 - pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; otherwise it builds locally
@@ -58,17 +58,17 @@ List the available variants:
 make variants
 ```
 
-Use the Claude Desktop image, which is the default:
+Use the minimal XFCE, TigerVNC, and noVNC image, which is the default:
 
 ```sh
 make up
-make up VARIANT=ai
+make up VARIANT=base
 ```
 
-Use the minimal XFCE, TigerVNC, and noVNC image without Claude Desktop:
+Use the image with Claude Desktop:
 
 ```sh
-make up VARIANT=base
+make up VARIANT=ai
 ```
 
 `VARIANT` selects the Containerfile, image tag, and container name together:
@@ -90,8 +90,8 @@ make clean VARIANT=base
 The variants can coexist because they use different image and container names. To run both simultaneously, assign a different host port to one of them:
 
 ```sh
-make up VARIANT=ai
-make up VARIANT=base PORT=6081
+make up VARIANT=base
+make up VARIANT=ai PORT=6081
 ```
 
 `CONTAINERFILE`, `IMAGE`, and `NAME` remain independently overridable for custom images. `make up` only pulls from GitHub Container Registry for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; any other variant (including a locally added `Containerfile.foo`), or an overridden `CONTAINERFILE`/`IMAGE`, is built locally instead, since no matching image is published for it. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
@@ -122,7 +122,7 @@ The entrypoint starts as root to initialize the persistent home volume and the w
 
 | Variable        | Default                                | Description                                                                                                                  |
 | --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `VARIANT`       | `ai`                                   | Image variant; selects the derived Containerfile, image tag, and container name                                              |
+| `VARIANT`       | `base`                                 | Image variant; selects the derived Containerfile, image tag, and container name                                              |
 | `CONTAINERFILE` | `Containerfile.${VARIANT}`             | Container build definition; normally derived from `VARIANT`                                                                  |
 | `IMAGE`         | `ghcr.io/dceoy/acld-${VARIANT}:latest` | OCI image reference, used both locally and for `make pull`; normally derived from `VARIANT`                                  |
 | `NAME`          | `acld-${VARIANT}`                      | Container name; normally derived from `VARIANT`                                                                              |
@@ -163,14 +163,14 @@ Notes:
 
   ```sh
   make down
-  container volume rm acld-ai-home
+  container volume rm acld-base-home
   ```
 
 ## Shell access
 
 ```sh
 make shell
-make shell VARIANT=base
+make shell VARIANT=ai
 ```
 
 `make shell` mounts the same workspace directory and persistent home volume as `make up`.
@@ -180,9 +180,9 @@ If the selected desktop container is already running, this opens a shell inside 
 ## Cleanup
 
 ```sh
-make down                 # stop the default AI container
-make clean                # also remove the default AI image
-make clean VARIANT=base   # remove the base container and image
+make down                 # stop the default base container
+make clean                # also remove the default base image
+make clean VARIANT=ai     # remove the AI container and image
 ```
 
 `make down` is safe when the selected container is already stopped or absent. `make clean` removes any stale selected container before deleting its image.

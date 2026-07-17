@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-VARIANT ?= ai
+VARIANT ?= base
 CONTAINERFILE ?= Containerfile.$(VARIANT)
 IMAGE ?= ghcr.io/dceoy/acld-$(VARIANT):latest
 NAME ?= acld-$(VARIANT)
