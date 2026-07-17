@@ -17,6 +17,46 @@ jobs:
     uses: dceoy/gh-actions-for-devops/.github/workflows/shell-lint.yml@main  # zizmor: ignore[unpinned-uses]
     with:
       search-path: .
+  container-build:
+    name: Build ${{ matrix.variant }} variant
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - base
+          - claude
+          - oracle
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Lint Containerfile
+        uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5  # v3.3.0
+        with:
+          dockerfile: Containerfile.${{ matrix.variant }}
+          failure-threshold: error
+          recursive: false
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8  # v4.2.0
+        with:
+          platforms: arm64
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c  # v4.2.0
+      - name: Build container image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+        with:
+          context: .
+          file: Containerfile.${{ matrix.variant }}
+          platforms: linux/arm64
+          push: false
+          pull: true
+          provenance: false
+          cache-from: type=gha,scope=acld-${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=acld-${{ matrix.variant }}
   dependabot-auto-merge:
     if: >
       github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
