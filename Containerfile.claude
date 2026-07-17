@@ -1,0 +1,120 @@
+# syntax=docker/dockerfile:1
+FROM public.ecr.aws/docker/library/ubuntu:26.04
+
+ARG DEBIAN_FRONTEND='noninteractive'
+ARG USER_NAME='agent'
+ARG USER_UID='1001'
+ARG USER_GID='1001'
+ARG VNC_GEOMETRY='1440x900'
+ARG VNC_DEPTH='24'
+ARG NOVNC_PORT='6080'
+
+LABEL \
+  org.opencontainers.image.title="acld" \
+  org.opencontainers.image.description="Claude Desktop on XFCE for Apple Container with TigerVNC and noVNC" \
+  org.opencontainers.image.source="https://github.com/dceoy/acld" \
+  org.opencontainers.image.licenses="MIT"
+
+ENV \
+  DISPLAY=':1' \
+  VNC_GEOMETRY="${VNC_GEOMETRY}" \
+  VNC_DEPTH="${VNC_DEPTH}" \
+  NOVNC_PORT="${NOVNC_PORT}"
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# hadolint ignore=DL3008,DL3009
+RUN \
+      --mount=type=cache,target=/var/cache/apt,sharing=locked \
+      --mount=type=cache,target=/var/lib/apt,sharing=locked \
+      rm -f /etc/apt/apt.conf.d/docker-clean \
+      && printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' \
+        > /etc/apt/apt.conf.d/99acld-keep-cache \
+      && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
+        > /etc/apt/apt.conf.d/99acld-network-retries \
+      && apt-get -yqq update \
+      && apt-get -yqq upgrade \
+      && apt-get -yqq install --no-install-recommends --no-install-suggests \
+        ca-certificates curl dbus dbus-x11 gnupg novnc procps tigervnc-standalone-server \
+        tigervnc-tools tini websockify xfce4 xfce4-terminal
+
+# hadolint ignore=DL3008,DL3009
+RUN \
+      --mount=type=cache,target=/var/cache/apt,sharing=locked \
+      --mount=type=cache,target=/var/lib/apt,sharing=locked \
+      claude_desktop_key_fingerprint='31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE' \
+      && curl -fsSL -o /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+        https://downloads.claude.ai/claude-desktop/key.asc \
+      && gpg --batch --show-keys --with-colons /usr/share/keyrings/claude-desktop-archive-keyring.asc \
+        | awk -F: -v expected="${claude_desktop_key_fingerprint}" \
+          '$1 == "pub" { public_keys++ } $1 == "fpr" && !fingerprint { fingerprint = $10 } END { exit !(public_keys == 1 && fingerprint == expected) }' \
+      && curl -fsSL -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+        https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+      && echo "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main" \
+        | tee /etc/apt/sources.list.d/claude-desktop.list \
+      && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | tee /etc/apt/sources.list.d/github-cli.list \
+      && apt-get -yqq update \
+      && apt-get -yqq install --no-install-recommends --no-install-suggests \
+        claude-desktop gh git jq nodejs python3 ripgrep rsync tree unzip vim wget zsh \
+      && apt-get -yqq autoremove --purge
+
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+ENV UV_TOOL_DIR=/usr/local/share/uv/tools
+ENV PNPM_HOME=/usr/local/share/pnpm
+ENV PNPM_GLOBAL_DIR=/usr/local/share/pnpm/global
+ENV PATH="${PNPM_HOME}/bin:${PATH}"
+
+RUN \
+      curl -fsSL https://astral.sh/uv/install.sh \
+        | env UV_UNMANAGED_INSTALL=/usr/local/bin sh
+
+RUN \
+      mkdir -p "${PNPM_HOME}" \
+      && curl -fsSL https://get.pnpm.io/install.sh \
+        | ENV=/tmp/pnpmrc SHELL=/bin/bash bash - \
+      && rm -f /tmp/pnpmrc
+
+RUN \
+      pnpm config set global-bin-dir "${PNPM_HOME}/bin" \
+      && pnpm config set global-dir "${PNPM_GLOBAL_DIR}" \
+      && pnpm config set store-dir /usr/local/share/pnpm/store
+
+RUN \
+      mkdir -p /usr/share/applications \
+      && { \
+        echo '[Desktop Entry]'; \
+        echo 'Type=Application'; \
+        echo 'Name=Claude Desktop'; \
+        echo 'Comment=Claude AI Assistant for Desktop'; \
+        echo 'Exec=/usr/bin/claude-desktop'; \
+        echo 'Icon=application-x-python'; \
+        echo 'Categories=Development;Utility;'; \
+        echo 'Terminal=false'; \
+      } > /usr/share/applications/claude-desktop.desktop
+
+RUN \
+      groupadd --gid "${USER_GID}" "${USER_NAME}" \
+      && useradd --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash --create-home "${USER_NAME}" \
+      && mkdir -p /opt/home-skel /workspace \
+      && cp -a "/home/${USER_NAME}/." /opt/home-skel/ \
+      && chown -R "${USER_NAME}:${USER_NAME}" /opt/home-skel /workspace
+
+ENV \
+  HOME="/home/${USER_NAME}" \
+  USER_NAME="${USER_NAME}" \
+  WORKSPACE_DIR='/workspace'
+
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
+
+USER ${USER_NAME}
+WORKDIR /workspace
+
+EXPOSE ${NOVNC_PORT}
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["bash", "-c", "< /dev/tcp/127.0.0.1/${NOVNC_PORT}"]
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint"]
