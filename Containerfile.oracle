@@ -1,0 +1,97 @@
+# syntax=docker/dockerfile:1
+FROM public.ecr.aws/docker/library/debian:13-slim
+
+ARG DEBIAN_FRONTEND='noninteractive'
+ARG USER_NAME='agent'
+ARG USER_UID='1001'
+ARG USER_GID='1001'
+ARG VNC_GEOMETRY='1440x900'
+ARG VNC_DEPTH='24'
+ARG NOVNC_PORT='6080'
+
+LABEL \
+  org.opencontainers.image.title="acld" \
+  org.opencontainers.image.description="Oracle CLI with Chromium on XFCE for Apple Container" \
+  org.opencontainers.image.source="https://github.com/dceoy/acld" \
+  org.opencontainers.image.licenses="MIT"
+
+ENV \
+  DISPLAY=':1' \
+  VNC_GEOMETRY="${VNC_GEOMETRY}" \
+  VNC_DEPTH="${VNC_DEPTH}" \
+  NOVNC_PORT="${NOVNC_PORT}"
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# hadolint ignore=DL3008,DL3009
+RUN \
+      --mount=type=cache,target=/var/cache/apt,sharing=locked \
+      --mount=type=cache,target=/var/lib/apt,sharing=locked \
+      rm -f /etc/apt/apt.conf.d/docker-clean \
+      && printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' \
+        > /etc/apt/apt.conf.d/99acld-keep-cache \
+      && printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
+        > /etc/apt/apt.conf.d/99acld-network-retries \
+      && apt-get -yqq update \
+      && apt-get -yqq upgrade \
+      && apt-get -yqq install --no-install-recommends --no-install-suggests \
+        ca-certificates chromium curl dbus dbus-x11 fonts-noto-cjk gh git gnupg jq novnc \
+        procps ripgrep rsync tigervnc-standalone-server tigervnc-tools tini tree unzip vim \
+        websockify wget xfce4 xfce4-terminal xz-utils zsh
+
+# Oracle requires Node.js 24 or later.
+# hadolint ignore=DL3008,DL3009
+RUN \
+      curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+      && apt-get -yqq install --no-install-recommends --no-install-suggests nodejs \
+      && npm install --global @steipete/oracle \
+      && npm cache clean --force \
+      && node --version \
+      && oracle --version \
+      && apt-get -yqq autoremove --purge
+
+ENV CHROME_PATH='/usr/bin/chromium'
+ENV ORACLE_ENGINE='browser'
+
+RUN \
+      groupadd --gid "${USER_GID}" "${USER_NAME}" \
+      && useradd --uid "${USER_UID}" --gid "${USER_GID}" --shell /bin/bash --create-home "${USER_NAME}" \
+      && mkdir -p /opt/home-skel /workspace \
+      && cp -a "/home/${USER_NAME}/." /opt/home-skel/ \
+      && mkdir -p /opt/home-skel/.oracle \
+      && cat > /opt/home-skel/.oracle/config.json <<'EOF'
+{
+  engine: "browser",
+  browser: {
+    chromePath: "/usr/bin/chromium",
+    manualLogin: true,
+    modelStrategy: "current",
+    timeoutMs: 1200000,
+    inputTimeoutMs: 300000,
+    autoReattachDelayMs: 5000,
+    autoReattachIntervalMs: 3000,
+    autoReattachTimeoutMs: 60000,
+    headless: false,
+  },
+}
+EOF
+
+RUN chown -R "${USER_NAME}:${USER_NAME}" /opt/home-skel /workspace
+
+ENV \
+  HOME="/home/${USER_NAME}" \
+  USER_NAME="${USER_NAME}" \
+  WORKSPACE_DIR='/workspace'
+
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint
+
+USER ${USER_NAME}
+WORKDIR /workspace
+
+EXPOSE ${NOVNC_PORT}
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["bash", "-c", "< /dev/tcp/127.0.0.1/${NOVNC_PORT}"]
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint"]

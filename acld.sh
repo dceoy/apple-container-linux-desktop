@@ -56,7 +56,7 @@ using_default_containerfile_and_image() {
 }
 
 published_variant() {
-  [[ "${VARIANT}" == ai || "${VARIANT}" == base ]]
+  [[ "${VARIANT}" == base || "${VARIANT}" == claude || "${VARIANT}" == oracle ]]
 }
 
 check() {
@@ -261,7 +261,7 @@ Targets:
   help         Show this help message
 
 Common variables:
-  VARIANT=ai|base
+  VARIANT=base|claude|oracle
   CONTAINERFILE=Containerfile.\${VARIANT}
   IMAGE=ghcr.io/dceoy/acld-\${VARIANT}:latest
   NAME=acld-\${VARIANT}

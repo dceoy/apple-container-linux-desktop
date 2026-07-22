@@ -1,13 +1,13 @@
 # acld
 
-Run Claude Desktop or a minimal Linux desktop using Apple Container, XFCE, TigerVNC, and noVNC.
+Run a minimal Linux desktop, Claude Desktop, or Oracle CLI browser automation using Apple Container, XFCE, TigerVNC, and noVNC.
 
 ## Requirements
 
 - Apple silicon Mac
 - macOS 26 or later
-- Apple `container` CLI ([install instructions](https://github.com/apple/container))
-- `make` (included with the macOS command line developer tools)
+- Apple `container` CLI
+- `make` from the macOS command line developer tools
 
 ## Architecture
 
@@ -20,81 +20,113 @@ macOS browser
   -> Apple Container Linux VM
 ```
 
-This repository intentionally keeps the implementation small:
+The repository intentionally keeps the implementation small:
 
-- two image definitions: `Containerfile.ai` adds Claude Desktop to the minimal
-  desktop in `Containerfile.base`
-- one container runtime entrypoint (`entrypoint.sh`)
-- one host-side shell script (`acld.sh`) that wraps Apple `container` operations
-- one small `Makefile` that dispatches to `acld.sh`
-- exactly one host bind mount (the workspace) plus one persistent named volume (the home directory)
-- no GUI wrapper, Docker Compose compatibility layer, or Swift application
+- `Containerfile.base` provides the minimal desktop
+- `Containerfile.claude` adds Claude Desktop and development tools
+- `Containerfile.oracle` adds Chromium and the Oracle CLI for ChatGPT browser automation
+- `entrypoint.sh` starts the desktop services
+- `acld.sh` wraps Apple `container` operations
+- one host workspace bind mount and one persistent home volume
 
 ## Quick start
+
+Start the minimal desktop:
 
 ```sh
 make up
 ```
 
-This safe-to-rerun command:
+Open the printed noVNC URL, normally `http://localhost:6080/vnc.html`, and enter the displayed VNC password.
 
-- selects the `base` image variant by default
-- verifies you're on an Apple silicon Mac, running a supported macOS version, with the `container` CLI installed
-- starts the Apple container system if it isn't already running
-- pulls the selected image from GitHub Container Registry only if it doesn't already exist locally, for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; otherwise it builds locally
-- starts the selected desktop container detached, unless it's already running
-- bind-mounts the current directory (or `WORKSPACE_DIR`) read-write at `/workspace`, and attaches a persistent named volume at `/home/agent`
-- prints the noVNC URL
-
-Open the printed URL in a browser (default: `http://localhost:6080/vnc.html`) and log in with the VNC password. When `VNC_PASSWORD` is left empty, `make up` generates a random password and prints it once at startup (see [Security](#security)).
-
-Run `make up` again at any time: it is safe to re-run and will not create a second container.
+The command is safe to rerun and does not create a duplicate container.
 
 ## Image variants
 
-List the available variants:
+List available variants:
 
 ```sh
 make variants
 ```
 
-Use the minimal XFCE, TigerVNC, and noVNC image, which is the default:
+| Variant  | Containerfile          | Image                              | Container     | Purpose                                          |
+| -------- | ---------------------- | ---------------------------------- | ------------- | ------------------------------------------------ |
+| `base`   | `Containerfile.base`   | `ghcr.io/dceoy/acld-base:latest`   | `acld-base`   | Minimal XFCE desktop                             |
+| `claude` | `Containerfile.claude` | `ghcr.io/dceoy/acld-claude:latest` | `acld-claude` | Claude Desktop and development tools             |
+| `oracle` | `Containerfile.oracle` | `ghcr.io/dceoy/acld-oracle:latest` | `acld-oracle` | Oracle CLI with headful Chromium for ChatGPT Web |
+
+The former `ai` variant has been renamed to `claude` so the variant name describes the installed application explicitly. This also changes the default container name from `acld-ai` to `acld-claude` and the default home volume from `acld-ai-home` to `acld-claude-home`. To keep using the existing Claude Desktop settings and login state, reuse the old volume explicitly:
+
+```sh
+make up VARIANT=claude HOME_VOLUME=acld-ai-home
+```
+
+### Minimal desktop
 
 ```sh
 make up
 make up VARIANT=base
 ```
 
-Use the image with Claude Desktop:
+### Claude Desktop
 
 ```sh
-make up VARIANT=ai
+make up VARIANT=claude
 ```
 
-`VARIANT` selects the Containerfile, image tag, and container name together:
-
-| Variant | Containerfile        | Image       | Container   |
-| ------- | -------------------- | ----------- | ----------- |
-| `ai`    | `Containerfile.ai`   | `acld:ai`   | `acld-ai`   |
-| `base`  | `Containerfile.base` | `acld:base` | `acld-base` |
-
-All lifecycle commands use the selected variant:
+### Oracle CLI and ChatGPT Web
 
 ```sh
-make build VARIANT=base
-make status VARIANT=base
-make down VARIANT=base
-make clean VARIANT=base
+make up VARIANT=oracle PORT=6082 MEMORY=8G
 ```
 
-The variants can coexist because they use different image and container names. To run both simultaneously, assign a different host port to one of them:
+Open the noVNC URL and run the first login from an XFCE terminal:
 
 ```sh
-make up VARIANT=base
-make up VARIANT=ai PORT=6081
+oracle \
+  --browser-keep-browser \
+  --browser-input-timeout 5m \
+  -p "Reply with OK."
 ```
 
-`CONTAINERFILE`, `IMAGE`, and `NAME` remain independently overridable for custom images. `make up` only pulls from GitHub Container Registry for the published `ai`/`base` variants with default `CONTAINERFILE`/`IMAGE`; any other variant (including a locally added `Containerfile.foo`), or an overridden `CONTAINERFILE`/`IMAGE`, is built locally instead, since no matching image is published for it. The Make workflow always passes the selected Containerfile explicitly; direct `container build` commands must also specify `--file`.
+Complete the ChatGPT login in the Chromium window. The browser profile, Oracle configuration, and Oracle sessions are stored below `/home/agent`, which is backed by the persistent home volume.
+
+Subsequent calls can run directly from the terminal:
+
+```sh
+oracle -p "Review this repository" --file "src/**/*"
+```
+
+Oracle browser mode is configured to use headful Chromium, manual login, the currently selected ChatGPT model, and automatic response reattachment. Browser automation remains dependent on the ChatGPT Web UI and may occasionally require interactive recovery through noVNC.
+
+## Variant overrides
+
+`VARIANT` selects the Containerfile, image tag, and container name together. The values remain independently overridable:
+
+```sh
+make build VARIANT=oracle
+make status VARIANT=oracle
+make down VARIANT=oracle
+make clean VARIANT=oracle
+```
+
+Custom definitions can be selected explicitly:
+
+```sh
+make up \
+  VARIANT=custom \
+  CONTAINERFILE=Containerfile.custom \
+  IMAGE=acld:custom \
+  NAME=acld-custom
+```
+
+To run variants simultaneously, use different host ports:
+
+```sh
+make up VARIANT=base PORT=6080
+make up VARIANT=claude PORT=6081
+make up VARIANT=oracle PORT=6082 MEMORY=8G
+```
 
 ## Make targets
 
@@ -102,99 +134,75 @@ make up VARIANT=ai PORT=6081
 make <target> [VARIABLE=value ...]
 ```
 
-| Target     | Description                                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| `up`       | Start the selected desktop. Safe to run repeatedly.                                                              |
-| `down`     | Stop the selected desktop container. Safe if it is already stopped.                                              |
-| `status`   | Print whether the selected desktop is running and the noVNC URL. Exits non-zero when not running.                |
-| `shell`    | Open an interactive shell. Uses the selected running container, otherwise starts a temporary one from its image. |
-| `pull`     | Pull the selected image from GitHub Container Registry and tag it as the local image.                            |
-| `build`    | Build the selected container image locally.                                                                      |
-| `clean`    | Stop and remove the selected container, then remove its local and pulled images.                                 |
-| `variants` | List available `Containerfile.*` image variants.                                                                 |
-| `help`     | Show usage.                                                                                                      |
+| Target     | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `up`       | Start the selected desktop; safe to rerun             |
+| `down`     | Stop the selected container                           |
+| `status`   | Show container status and the noVNC URL               |
+| `shell`    | Open an interactive shell                             |
+| `pull`     | Pull the selected image                               |
+| `build`    | Build the selected image locally                      |
+| `clean`    | Remove the selected container, image, and home volume |
+| `variants` | List available `Containerfile.*` variants             |
+| `help`     | Show command usage                                    |
 
 ## Configuration
 
-Configuration is passed as Make variables (or exported environment variables); any variable left unset falls back to the default shown below.
-
-The entrypoint starts as root to initialize the persistent home volume and the workspace mount, then drops privileges and runs everything else as the non-root user `agent` with UID and GID `1001`; its home directory is `/home/agent`, and the default working directory is `/workspace`.
-
-| Variable        | Default                                | Description                                                                                                                  |
-| --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `VARIANT`       | `base`                                 | Image variant; selects the derived Containerfile, image tag, and container name                                              |
-| `CONTAINERFILE` | `Containerfile.${VARIANT}`             | Container build definition; normally derived from `VARIANT`                                                                  |
-| `IMAGE`         | `ghcr.io/dceoy/acld-${VARIANT}:latest` | OCI image reference, used both locally and for `make pull`; normally derived from `VARIANT`                                  |
-| `NAME`          | `acld-${VARIANT}`                      | Container name; normally derived from `VARIANT`                                                                              |
-| `HOST_IP`       | `127.0.0.1`                            | Host bind address                                                                                                            |
-| `PORT`          | `6080`                                 | noVNC host port                                                                                                              |
-| `CPUS`          | `4`                                    | Container CPU allocation                                                                                                     |
-| `MEMORY`        | `4G`                                   | Container memory allocation                                                                                                  |
-| `VNC_GEOMETRY`  | `1440x900`                             | Desktop resolution                                                                                                           |
-| `VNC_DEPTH`     | `24`                                   | VNC color depth                                                                                                              |
-| `VNC_PASSWORD`  | (randomly generated when empty)        | VNC password                                                                                                                 |
-| `WORKSPACE_DIR` | current directory                      | Host directory bind-mounted read-write at `/workspace`. See [Workspace and persistent home](#workspace-and-persistent-home). |
-| `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Named volume backing the persistent `/home/agent` home. See [Workspace and persistent home](#workspace-and-persistent-home). |
+| Variable        | Default                                | Description                                          |
+| --------------- | -------------------------------------- | ---------------------------------------------------- |
+| `VARIANT`       | `base`                                 | Selects the Containerfile, image, and container name |
+| `CONTAINERFILE` | `Containerfile.${VARIANT}`             | Container build definition                           |
+| `IMAGE`         | `ghcr.io/dceoy/acld-${VARIANT}:latest` | OCI image reference                                  |
+| `NAME`          | `acld-${VARIANT}`                      | Container name                                       |
+| `HOST_IP`       | `127.0.0.1`                            | noVNC bind address                                   |
+| `PORT`          | `6080`                                 | noVNC host port                                      |
+| `CPUS`          | `4`                                    | CPU allocation                                       |
+| `MEMORY`        | `4G`                                   | Memory allocation                                    |
+| `VNC_GEOMETRY`  | `1440x900`                             | Desktop resolution                                   |
+| `VNC_DEPTH`     | `24`                                   | VNC color depth                                      |
+| `VNC_PASSWORD`  | generated when empty                   | VNC password                                         |
+| `WORKSPACE_DIR` | current directory                      | Host directory mounted at `/workspace`               |
+| `HOME_VOLUME`   | `acld-${VARIANT}-home`                 | Persistent volume mounted at `/home/agent`           |
 
 Example:
 
 ```sh
-make up VARIANT=base PORT=6081 MEMORY=8G
+make up VARIANT=oracle PORT=6082 MEMORY=8G WORKSPACE_DIR="$HOME/projects/demo"
 ```
 
-## Workspace and persistent home
+## Persistent storage
 
-Every `make up` attaches exactly two mounts -- there is no support for mounting additional host paths:
+Each desktop uses two mounts:
 
-- **Workspace**: the host directory `make up` is run from is bind-mounted read-write at `/workspace`, which is also the container's default working directory. Override the host side with `WORKSPACE_DIR`:
+- the selected host workspace is mounted read-write at `/workspace`
+- a named Apple Container volume is mounted at `/home/agent`
 
-  ```sh
-  WORKSPACE_DIR=~/projects/demo make up
-  ```
+The home volume preserves browser profiles, desktop settings, Claude Desktop configuration, Oracle settings, and Oracle sessions across `down` and `up` cycles.
 
-- **Home**: `/home/agent` is backed by a named Apple Container volume (`HOME_VOLUME`, default `acld-${VARIANT}-home`) so desktop settings, Claude Desktop configuration, and anything else written under the home directory survive `make down` / `make up` cycles. The volume is created automatically and seeded once from the image's default home skeleton the first time it's used; later starts leave its contents untouched.
+Changing `WORKSPACE_DIR` or `HOME_VOLUME` takes effect after recreating the container:
 
-Notes:
-
-- `WORKSPACE_DIR` must exist and be a directory; `make up` and `make shell` validate it first.
-- The workspace mount is always read-write -- only run `make up` from (or point `WORKSPACE_DIR` at) a directory whose contents you're comfortable with the desktop reading and modifying.
-- Both mounts are fixed at container creation; changing `WORKSPACE_DIR` or `HOME_VOLUME` only takes effect on the next `make down && make up`, not on an already-running container.
-- To reset the persistent home directory, stop the container and delete its volume:
-
-  ```sh
-  make down
-  container volume rm acld-base-home
-  ```
+```sh
+make down VARIANT=oracle
+make up VARIANT=oracle WORKSPACE_DIR="$HOME/projects/demo"
+```
 
 ## Shell access
 
 ```sh
 make shell
-make shell VARIANT=ai
+make shell VARIANT=claude
+make shell VARIANT=oracle
 ```
-
-`make shell` mounts the same workspace directory and persistent home volume as `make up`.
-
-If the selected desktop container is already running, this opens a shell inside it. Otherwise it starts a temporary, disposable container from the selected built image.
-
-## Cleanup
-
-```sh
-make down                 # stop the default base container
-make clean                # also remove the default base image
-make clean VARIANT=ai     # remove the AI container and image
-```
-
-`make down` is safe when the selected container is already stopped or absent. `make clean` removes any stale selected container before deleting its image.
 
 ## Security
 
-- The default configuration binds noVNC to `HOST_IP=127.0.0.1`, i.e. only reachable from the Mac itself. Do not set `HOST_IP` to `0.0.0.0` (or any non-loopback address) unless the network is trusted -- noVNC and VNC traffic are not encrypted.
-- Set an explicit `VNC_PASSWORD` before exposing `PORT` beyond localhost. When it is left empty, `make up` generates a random password and prints it once at startup.
-- Avoid publishing `PORT` through port forwarding, tunnels, or reverse proxies without adding transport encryption (e.g. an SSH tunnel or a TLS-terminating proxy) and a strong `VNC_PASSWORD`.
-- The workspace mount gives the desktop direct, read-write access to the host directory `make up` runs from (or `WORKSPACE_DIR`). Anyone who can reach the desktop (via VNC or `make shell`) can read and write those host files, so only run it from -- or point `WORKSPACE_DIR` at -- a directory you're comfortable exposing.
-- The persistent home volume (`HOME_VOLUME`) retains its contents across restarts. Treat it like any other local state: it isn't encrypted at rest, and `make clean` does not remove it (see [Workspace and persistent home](#workspace-and-persistent-home) to reset it).
+- noVNC binds to `127.0.0.1` by default. Do not expose it on an untrusted network.
+- Use a strong explicit `VNC_PASSWORD` before any non-loopback exposure.
+- The workspace mount is read-write; expose only directories the desktop may modify.
+- The persistent home volume contains authenticated browser state and is not encrypted by acld.
+- Oracle browser mode stores the ChatGPT login in its persistent Chromium profile. Treat the Oracle home volume as sensitive credential material.
+- Do not add Chromium `--no-sandbox` unless the container runtime prevents the normal browser sandbox from starting and the security tradeoff is explicitly accepted.
 
 ## Scope
 
-This project is a minimal desktop launcher for local development and experimentation. GPU acceleration, Wayland compositors, and multi-container orchestration are intentionally out of scope. The home directory persists across restarts (see [Workspace and persistent home](#workspace-and-persistent-home)); no other desktop state does.
+This project is a minimal desktop launcher for local development and experimentation. GPU acceleration, Wayland compositors, and multi-container orchestration are out of scope.
